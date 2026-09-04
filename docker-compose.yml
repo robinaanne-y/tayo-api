@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tayo-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tayo
+      POSTGRES_USER: tayo
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - tayo-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  tayo-postgres-data:
