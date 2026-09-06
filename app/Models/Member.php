@@ -42,6 +42,11 @@ class Member extends Model
             ->withTimestamps();
     }
 
+    public function activationTokens(): HasMany
+    {
+        return $this->hasMany(MemberActivationToken::class);
+    }
+
     /**
      * A member without a linked user account is a placeholder
      * (e.g. a child) managed on behalf of by an adult/owner.

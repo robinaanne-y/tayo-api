@@ -33,4 +33,9 @@ class Household extends Model
             ->withPivot(['role', 'status', 'joined_at'])
             ->withTimestamps();
     }
+
+    public function invitations(): HasMany
+    {
+        return $this->hasMany(HouseholdInvitation::class);
+    }
 }
