@@ -23,6 +23,7 @@ class AuthController extends Controller
             'password' => Hash::make($request->validated('password')),
         ]);
 
+        $user->load('member.households');
         $token = $user->createToken($request->userAgent() ?? 'mobile')->plainTextToken;
 
         return response()->json([
@@ -41,6 +42,7 @@ class AuthController extends Controller
             ]);
         }
 
+        $user->load('member.households');
         $deviceName = $request->validated('device_name') ?? $request->userAgent() ?? 'mobile';
         $token = $user->createToken($deviceName)->plainTextToken;
 

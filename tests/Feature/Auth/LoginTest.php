@@ -2,6 +2,9 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Enums\HouseholdRole;
+use App\Models\Household;
+use App\Models\Member;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -22,6 +25,21 @@ class LoginTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('data.email', $user->email)
             ->assertJsonStructure(['data', 'token']);
+    }
+
+    public function test_login_returns_the_users_existing_households(): void
+    {
+        $user = User::factory()->create(['password' => bcrypt('password123')]);
+        $household = Household::factory()->create(['created_by_user_id' => $user->id, 'name' => 'Santos Family']);
+        $member = Member::factory()->create(['user_id' => $user->id]);
+        $household->memberships()->create(['member_id' => $member->id, 'role' => HouseholdRole::Owner]);
+
+        $response = $this->postJson('/api/v1/auth/login', [
+            'email' => $user->email,
+            'password' => 'password123',
+        ]);
+
+        $response->assertOk()->assertJsonPath('data.households.0.name', 'Santos Family');
     }
 
     public function test_login_fails_with_invalid_credentials(): void
