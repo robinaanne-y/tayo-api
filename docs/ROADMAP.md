@@ -6,10 +6,11 @@
 > the two ever disagree on what a phase *means*, the mobile roadmap wins;
 > this file should be updated to match.
 >
-> **Status:** Phase 0 done. Phase 1's core slice (auth, households, members)
-> is implemented — see `ARCHITECTURE.md` → "API Surface" and `DECISIONS.md`
-> for what exists and why. Invitations/activation, the remainder of Phase 1,
-> are not started.
+> **Status:** Phase 0 done. Phase 1 (auth, households, members, invite
+> links + QR, placeholder activation) is implemented and tested — see
+> `ARCHITECTURE.md` → "API Surface" and `DECISIONS.md` for what exists and
+> why. Only a few profile/settings endpoints (user/household/member profile
+> edit, which have no mobile UI yet) remain.
 
 ## Ground Rules
 
@@ -39,7 +40,7 @@
 
 ---
 
-## Phase 1 — Accounts & Households (in progress)
+## Phase 1 — Accounts & Households (in progress — profile/settings endpoints remain)
 
 ### Done
 
@@ -47,20 +48,24 @@
 - `households` index/store/show/update
 - `households/{household}/members` index/store
 - `HouseholdRole` enum (`owner`, `adult`, `minor`, `child`)
+- **Household invitations** — `household_invitations` table (single-use,
+  expiring, hashed token). `POST /api/v1/households/{household}/invitations`
+  (Owner/Adult only), `GET /api/v1/invitations/{token}` (public preview),
+  `POST /api/v1/invitations/{token}/accept` (authenticated). Tested end to
+  end, including on-device via the mobile deep link.
+- **Member activation** — `member_activation_tokens` table (same shape as
+  invitations). `POST /api/v1/households/{household}/members/{member}/activation-link`
+  (Owner/Adult only, placeholder members only), `GET /api/v1/activation/{token}`
+  (public preview), `POST /api/v1/activation/{token}/claim` (public; creates
+  a `User`, links `member.user_id`, invalidates the token, logs the user in).
+- **QR invitation** — no new backend work needed; the mobile app renders
+  the same invite/activation link as a QR code and decodes one back into a
+  token client-side. Verified end to end (including via a Playwright run
+  with a synthetic camera feed) that a scanned code correctly round-trips
+  through `GET /api/v1/invitations/{token}`.
 
 ### Remaining backend work
 
-- **Member activation tokens** — new `member_activation_tokens` table
-  (random, single-use, expirable; see `ARCHITECTURE.md` §7 in mobile docs
-  for the shape). Endpoints:
-  - `POST /api/v1/households/{household}/members/{member}/activation-link`
-    (Owner/Adult only — generates/rotates the token)
-  - `POST /api/v1/activation/{token}/claim` (public; creates a `User`,
-    links `member.user_id`, invalidates the token)
-- **Invite link / QR** — an invite is a household-level token distinct
-  from member activation (it lets a *new* person join, rather than
-  claiming an existing placeholder). Needs its own table
-  (`household_invitations`) and accept endpoint.
 - **User profile edit** — `PATCH /api/v1/auth/me` or `PATCH /api/v1/users/me`.
 - **Household profile (richer)** — extend the `households` resource/update
   payload once mobile defines what "settings" means (avatar, timezone,
@@ -69,13 +74,13 @@
   /api/v1/households/{household}/members/{member}`.
 - **Household switching support** — already possible data-model-wise
   (`GET /api/v1/households` returns all memberships); no backend gap here,
-  this is a mobile-only UI task.
+  this is a mobile-only UI task (a profile/settings screen, not yet built).
 
 ### Milestone
 
 Matches mobile: register → create household → add members → invite →
-manage household, fully backed by real endpoints (not just the slice that
-works today).
+manage household, fully backed by real endpoints. Invite link and
+placeholder activation tested end to end.
 
 ---
 
@@ -275,7 +280,7 @@ RevenueCat as the source of truth for payment state only.
 | Phase | Focus | New tables (rough) | Depends on |
 |---|---|---|---|
 | 0 | Foundation | users, households, members, household_memberships | — ✅ |
-| 1 | Accounts + Households + Members | member_activation_tokens, household_invitations | Phase 0 (in progress) |
+| 1 | Accounts + Households + Members | household_invitations, member_activation_tokens | Phase 0 (nearly done — profile-editing endpoints remain) |
 | 2 | Home + Family Feed | family_notes, announcements | Phase 1 |
 | 3 | Calendar + Scheduling | events, event_participants, event_households, recurring_rules | Phase 1 |
 | 4 | Family Requests | requests, request_conditions | Phase 1, 3 (for promote-to-event) |
