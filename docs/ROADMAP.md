@@ -7,10 +7,10 @@
 > this file should be updated to match.
 >
 > **Status:** Phase 0 done. Phase 1 (auth, households, members, invite
-> links + QR, placeholder activation) is implemented and tested — see
-> `ARCHITECTURE.md` → "API Surface" and `DECISIONS.md` for what exists and
-> why. Only a few profile/settings endpoints (user/household/member profile
-> edit, which have no mobile UI yet) remain.
+> links + QR, placeholder activation, user profile edit, household
+> switching) is implemented and tested — see `ARCHITECTURE.md` → "API
+> Surface" and `DECISIONS.md` for what exists and why. Only household
+> profile settings and per-member profile edit remain.
 
 ## Ground Rules
 
@@ -40,7 +40,7 @@
 
 ---
 
-## Phase 1 — Accounts & Households (in progress — profile/settings endpoints remain)
+## Phase 1 — Accounts & Households (in progress — household & member profile endpoints remain)
 
 ### Done
 
@@ -63,24 +63,28 @@
   token client-side. Verified end to end (including via a Playwright run
   with a synthetic camera feed) that a scanned code correctly round-trips
   through `GET /api/v1/invitations/{token}`.
+- **User profile edit** — `PATCH /api/v1/auth/me` updates name/email
+  (email uniqueness excludes the current user's own row). Backs the
+  mobile Profile screen, verified end to end via Playwright.
+- **Household switching** — no backend work needed; `GET /api/v1/households`
+  already returned every membership. `households.index` and every
+  `member.households` eager-load (register/login/me) now also return
+  `member_count` via `withCount('members')`, so the mobile switcher can
+  show household size without an extra round trip.
 
 ### Remaining backend work
 
-- **User profile edit** — `PATCH /api/v1/auth/me` or `PATCH /api/v1/users/me`.
 - **Household profile (richer)** — extend the `households` resource/update
   payload once mobile defines what "settings" means (avatar, timezone,
   etc.) — don't speculate on fields ahead of the UI.
 - **Member profile detail/edit** — `GET`/`PATCH
   /api/v1/households/{household}/members/{member}`.
-- **Household switching support** — already possible data-model-wise
-  (`GET /api/v1/households` returns all memberships); no backend gap here,
-  this is a mobile-only UI task (a profile/settings screen, not yet built).
 
 ### Milestone
 
 Matches mobile: register → create household → add members → invite →
-manage household, fully backed by real endpoints. Invite link and
-placeholder activation tested end to end.
+manage household, fully backed by real endpoints. Invite link, placeholder
+activation, and household switching all tested end to end.
 
 ---
 
@@ -280,7 +284,7 @@ RevenueCat as the source of truth for payment state only.
 | Phase | Focus | New tables (rough) | Depends on |
 |---|---|---|---|
 | 0 | Foundation | users, households, members, household_memberships | — ✅ |
-| 1 | Accounts + Households + Members | household_invitations, member_activation_tokens | Phase 0 (nearly done — profile-editing endpoints remain) |
+| 1 | Accounts + Households + Members | household_invitations, member_activation_tokens | Phase 0 (nearly done — household/member profile endpoints remain) |
 | 2 | Home + Family Feed | family_notes, announcements | Phase 1 |
 | 3 | Calendar + Scheduling | events, event_participants, event_households, recurring_rules | Phase 1 |
 | 4 | Family Requests | requests, request_conditions | Phase 1, 3 (for promote-to-event) |
