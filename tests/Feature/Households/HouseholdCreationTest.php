@@ -52,4 +52,22 @@ class HouseholdCreationTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors('name');
     }
+
+    public function test_index_lists_the_users_households_with_member_counts(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user)->postJson('/api/v1/households', ['name' => 'Santos Household']);
+
+        $household = \App\Models\Household::query()->where('name', 'Santos Household')->firstOrFail();
+        $household->memberships()->create([
+            'member_id' => \App\Models\Member::factory()->create()->id,
+            'role' => HouseholdRole::Child,
+        ]);
+
+        $response = $this->actingAs($user)->getJson('/api/v1/households');
+
+        $response->assertOk()
+            ->assertJsonPath('data.0.name', 'Santos Household')
+            ->assertJsonPath('data.0.member_count', 2);
+    }
 }

@@ -20,7 +20,7 @@ class HouseholdController extends Controller
         $member = $request->user()->member;
 
         $households = $member
-            ? $member->households()->get()
+            ? $member->households()->withCount('members')->get()
             : collect();
 
         return response()->json([
