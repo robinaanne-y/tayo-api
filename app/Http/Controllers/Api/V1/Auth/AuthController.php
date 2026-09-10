@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Requests\Auth\UpdateProfileRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -23,7 +24,7 @@ class AuthController extends Controller
             'password' => Hash::make($request->validated('password')),
         ]);
 
-        $user->load('member.households');
+        $user->load(['member.households' => fn ($query) => $query->withCount('members')]);
         $token = $user->createToken($request->userAgent() ?? 'mobile')->plainTextToken;
 
         return response()->json([
@@ -42,7 +43,7 @@ class AuthController extends Controller
             ]);
         }
 
-        $user->load('member.households');
+        $user->load(['member.households' => fn ($query) => $query->withCount('members')]);
         $deviceName = $request->validated('device_name') ?? $request->userAgent() ?? 'mobile';
         $token = $user->createToken($deviceName)->plainTextToken;
 
@@ -61,7 +62,19 @@ class AuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
-        $user = $request->user()->load('member.households');
+        $user = $request->user();
+        $user->load(['member.households' => fn ($query) => $query->withCount('members')]);
+
+        return response()->json([
+            'data' => UserResource::make($user),
+        ]);
+    }
+
+    public function updateProfile(UpdateProfileRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $user->update($request->validated());
+        $user->load(['member.households' => fn ($query) => $query->withCount('members')]);
 
         return response()->json([
             'data' => UserResource::make($user),

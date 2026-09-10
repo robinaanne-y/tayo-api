@@ -18,6 +18,11 @@ class HouseholdResource extends JsonResource
                 $this->pivot !== null,
                 fn () => $this->pivot->role?->value,
             ),
+            // Present only when the query eager-loaded it via withCount('members').
+            'member_count' => $this->when(
+                $this->members_count !== null,
+                fn () => $this->members_count,
+            ),
             'created_at' => $this->created_at,
         ];
     }

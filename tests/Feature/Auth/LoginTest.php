@@ -39,7 +39,9 @@ class LoginTest extends TestCase
             'password' => 'password123',
         ]);
 
-        $response->assertOk()->assertJsonPath('data.households.0.name', 'Santos Family');
+        $response->assertOk()
+            ->assertJsonPath('data.households.0.name', 'Santos Family')
+            ->assertJsonPath('data.households.0.member_count', 1);
     }
 
     public function test_login_fails_with_invalid_credentials(): void
