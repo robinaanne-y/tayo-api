@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\HouseholdRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Members\StoreMemberRequest;
+use App\Http\Requests\Members\UpdateMemberRequest;
 use App\Http\Resources\MemberResource;
 use App\Models\Household;
 use App\Models\Member;
@@ -46,5 +48,30 @@ class MemberController extends Controller
         return response()->json([
             'data' => MemberResource::make($member),
         ], 201);
+    }
+
+    public function update(UpdateMemberRequest $request, Household $household, Member $member): JsonResponse
+    {
+        $membership = $household->memberships()->where('member_id', $member->id)->first();
+        abort_if($membership === null, 404);
+
+        DB::transaction(function () use ($request, $membership, $member) {
+            $member->update([
+                'name' => $request->validated('name'),
+                'birth_date' => $request->validated('birth_date'),
+            ]);
+
+            // The sole Owner's role is immutable here — changing it belongs
+            // to a dedicated ownership-transfer flow, not a general edit.
+            if ($membership->role !== HouseholdRole::Owner) {
+                $membership->update(['role' => $request->validated('role')]);
+            }
+        });
+
+        $member->setRelation('pivot', $membership->fresh());
+
+        return response()->json([
+            'data' => MemberResource::make($member),
+        ]);
     }
 }
