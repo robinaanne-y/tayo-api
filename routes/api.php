@@ -31,6 +31,10 @@ Route::prefix('v1')->group(function () {
         Route::get('households/{household}/members', [MemberController::class, 'index']);
         Route::post('households/{household}/members', [MemberController::class, 'store']);
         Route::patch('households/{household}/members/{member}', [MemberController::class, 'update']);
+        Route::post(
+            'households/{household}/members/{member}/avatar',
+            [MemberController::class, 'updateAvatar'],
+        );
 
         Route::post('households/{household}/invitations', [InvitationController::class, 'store']);
         Route::post('invitations/{token}/accept', [InvitationController::class, 'accept']);

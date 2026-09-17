@@ -10,8 +10,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['name', 'birth_date', 'user_id'])]
+#[Fillable(['name', 'birth_date', 'avatar_path', 'user_id'])]
 class Member extends Model
 {
     /** @use HasFactory<MemberFactory> */
@@ -54,5 +55,12 @@ class Member extends Model
     protected function isPlaceholder(): Attribute
     {
         return Attribute::get(fn () => $this->user_id === null);
+    }
+
+    protected function avatarUrl(): Attribute
+    {
+        return Attribute::get(
+            fn () => $this->avatar_path ? Storage::disk('public')->url($this->avatar_path) : null,
+        );
     }
 }

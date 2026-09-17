@@ -13,6 +13,7 @@ class MemberResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'birth_date' => $this->birth_date?->toDateString(),
+            'avatar_url' => $this->avatar_url,
             'is_placeholder' => $this->is_placeholder,
             'role' => $this->when(
                 $this->pivot !== null,

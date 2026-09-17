@@ -5,12 +5,15 @@ namespace App\Http\Controllers\Api\V1;
 use App\Enums\HouseholdRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Members\StoreMemberRequest;
+use App\Http\Requests\Members\UpdateMemberAvatarRequest;
 use App\Http\Requests\Members\UpdateMemberRequest;
 use App\Http\Resources\MemberResource;
 use App\Models\Household;
+use App\Models\HouseholdMembership;
 use App\Models\Member;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class MemberController extends Controller
 {
@@ -50,10 +53,17 @@ class MemberController extends Controller
         ], 201);
     }
 
-    public function update(UpdateMemberRequest $request, Household $household, Member $member): JsonResponse
+    private function membershipFor(Household $household, Member $member): HouseholdMembership
     {
         $membership = $household->memberships()->where('member_id', $member->id)->first();
         abort_if($membership === null, 404);
+
+        return $membership;
+    }
+
+    public function update(UpdateMemberRequest $request, Household $household, Member $member): JsonResponse
+    {
+        $membership = $this->membershipFor($household, $member);
 
         DB::transaction(function () use ($request, $membership, $member) {
             $member->update([
@@ -73,6 +83,24 @@ class MemberController extends Controller
         });
 
         $member->setRelation('pivot', $membership->fresh());
+
+        return response()->json([
+            'data' => MemberResource::make($member),
+        ]);
+    }
+
+    public function updateAvatar(UpdateMemberAvatarRequest $request, Household $household, Member $member): JsonResponse
+    {
+        $this->membershipFor($household, $member);
+
+        $oldPath = $member->avatar_path;
+        $newPath = $request->file('avatar')->store('avatars', 'public');
+
+        $member->update(['avatar_path' => $newPath]);
+
+        if ($oldPath !== null) {
+            Storage::disk('public')->delete($oldPath);
+        }
 
         return response()->json([
             'data' => MemberResource::make($member),
