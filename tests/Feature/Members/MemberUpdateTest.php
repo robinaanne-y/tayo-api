@@ -115,6 +115,28 @@ class MemberUpdateTest extends TestCase
         ]);
     }
 
+    public function test_an_owner_can_update_their_own_name_without_sending_a_role(): void
+    {
+        $owner = User::factory()->create();
+        $household = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $ownerMember = $this->memberFor($owner, $household, HouseholdRole::Owner);
+
+        // Matches what the mobile app actually sends: the role field is
+        // immutable for the Owner's own row, so it's omitted entirely
+        // rather than resending 'owner' (which validation rejects).
+        $response = $this->actingAs($owner)->patchJson(
+            "/api/v1/households/{$household->id}/members/{$ownerMember->id}",
+            ['name' => 'Updated Owner Name'],
+        );
+
+        $response->assertOk()->assertJsonPath('data.name', 'Updated Owner Name');
+        $this->assertDatabaseHas('household_memberships', [
+            'household_id' => $household->id,
+            'member_id' => $ownerMember->id,
+            'role' => 'owner',
+        ]);
+    }
+
     public function test_a_member_outside_the_household_returns_not_found(): void
     {
         $owner = User::factory()->create();

@@ -63,7 +63,11 @@ class MemberController extends Controller
 
             // The sole Owner's role is immutable here — changing it belongs
             // to a dedicated ownership-transfer flow, not a general edit.
-            if ($membership->role !== HouseholdRole::Owner) {
+            // `role` is optional on this request specifically so the client
+            // can omit it for that case instead of resending the current
+            // value (which validation rejects outright — see
+            // UpdateMemberRequest).
+            if ($membership->role !== HouseholdRole::Owner && $request->has('role')) {
                 $membership->update(['role' => $request->validated('role')]);
             }
         });
