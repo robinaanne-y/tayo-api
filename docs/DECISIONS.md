@@ -129,3 +129,43 @@ SQLite keeps the test suite fast and isolated.
 Database-specific behavior, migration compatibility, and PostgreSQL constraints
 must be checked separately when they are relevant. A passing SQLite test suite
 alone does not prove PostgreSQL compatibility.
+
+## ADR-007: Store Member Avatars On The Local Public Disk With Relative URLs
+
+- **Status:** Accepted
+- **Date:** 2026-09-22
+
+### Decision
+
+Store member avatar uploads on Laravel's local `public` disk under
+`avatars/`, referenced by `members.avatar_path`. Serve them through a
+dedicated `POST /households/{household}/members/{member}/avatar`
+multipart endpoint rather than folding the file into the JSON `PATCH
+/members/{member}` payload. Expose the avatar to clients as a relative
+path (`/storage/{path}`) via a `Member::avatarUrl` accessor, not the
+absolute URL that `Storage::disk('public')->url()` would produce.
+
+### Rationale
+
+A dedicated endpoint is required because PHP does not populate `$_FILES`
+for multipart `PATCH`/`PUT` request bodies, so a file upload can't be
+merged into the existing member-update route without a workaround. Local
+disk storage matches the "don't add infrastructure before the phase that
+needs it" rule (ADR-002); S3 is deferred to Phase 8 per the mobile
+roadmap's Infrastructure Introduction Order. A relative URL is required
+because `Storage::url()` bakes in `.env`'s `APP_URL`, which is
+`http://localhost:8000` in development — a value that only resolves
+correctly on the machine running the server. A physical mobile device on
+the same LAN (or any client using a different `API_BASE_URL`) would fail
+to load the image if the backend returned that absolute URL. Returning a
+relative path lets each client resolve it against whatever host it's
+already configured to reach the API on.
+
+### Consequences
+
+Every client must resolve `avatar_url` against its own API base host
+(mobile does this via `Env.mediaBaseUrl`). Moving to S3 (or any CDN) later
+means changing `Member::avatarUrl` to return an absolute URL again, and at
+that point clients must stop prepending their own host — this is a
+breaking contract change for `avatar_url`'s shape, not just its storage
+backend, and should be versioned accordingly.
