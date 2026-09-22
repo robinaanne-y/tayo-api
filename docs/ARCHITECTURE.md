@@ -42,9 +42,18 @@ and production-oriented relational database configured by `.env` and
 
 Routes are defined in `routes/api.php` and currently cover:
 
-- `auth/register`, `auth/login`, `auth/logout`, and `auth/me`
+- `auth/register`, `auth/login`, `auth/logout`, `auth/me` (`GET`), and
+  `auth/me` (`PATCH`, user profile edit)
 - Household index, create, show, and update operations
-- Household member index and create operations
+- Household member index, create, and update operations, plus a
+  dedicated `POST .../members/{member}/avatar` upload endpoint (kept
+  separate from the JSON `PATCH` because PHP's `$_FILES` doesn't
+  populate for multipart `PATCH`/`PUT` request bodies)
+- Household invitations (`POST .../invitations`, public
+  `GET /invitations/{token}` preview, `POST /invitations/{token}/accept`)
+- Member activation for placeholder members (`POST
+  .../members/{member}/activation-link`, public `GET /activation/{token}`
+  preview, `POST /activation/{token}/claim`)
 
 There is currently no household or member delete endpoint. New capabilities should
 be added under the existing `/api/v1` namespace.
@@ -87,6 +96,14 @@ Migrations define the following core tables:
 Household and member creation use database transactions so the primary record
 and its membership are created together or not at all.
 
+Member avatars are stored on the local `public` disk (`storage/app/public`,
+symlinked via `php artisan storage:link`) under `avatars/`, referenced by
+`members.avatar_path`. `Member::avatarUrl` returns a relative `/storage/...`
+path rather than an absolute `Storage::url()` one, so mobile clients resolve
+it against whatever host they're already configured to use instead of the
+API's own `APP_URL` (see `DECISIONS.md`). This is a deliberate stand-in for
+S3 until Phase 8 (see Infrastructure Introduction Order in `ROADMAP.md`).
+
 ## Testing Strategy
 
 - Feature tests verify HTTP behavior, validation, authentication, authorization, and persistence.
@@ -103,6 +120,8 @@ php artisan test
 ## Operational Boundaries
 
 The API does not currently include realtime updates, push notification delivery,
-file storage, queues beyond the Laravel defaults, or third-party subscription
-integrations. Those can be introduced behind explicit application boundaries as
+queues beyond the Laravel defaults, or third-party subscription integrations.
+File storage is limited to member avatars on the local `public` disk (see
+Persistence above) — there is no S3 or other cloud storage yet. These
+boundaries can be introduced behind explicit application boundaries as
 features require them; they should not be treated as existing dependencies.
