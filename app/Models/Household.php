@@ -38,4 +38,9 @@ class Household extends Model
     {
         return $this->hasMany(HouseholdInvitation::class);
     }
+
+    public function familyNotes(): HasMany
+    {
+        return $this->hasMany(FamilyNote::class);
+    }
 }

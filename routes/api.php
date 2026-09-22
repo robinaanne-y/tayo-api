@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\ActivationController;
 use App\Http\Controllers\Api\V1\Auth\AuthController;
+use App\Http\Controllers\Api\V1\FamilyNoteController;
 use App\Http\Controllers\Api\V1\HouseholdController;
 use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\MemberController;
@@ -43,5 +44,9 @@ Route::prefix('v1')->group(function () {
             'households/{household}/members/{member}/activation-link',
             [ActivationController::class, 'store'],
         );
+
+        Route::get('households/{household}/notes', [FamilyNoteController::class, 'index']);
+        Route::post('households/{household}/notes', [FamilyNoteController::class, 'store']);
+        Route::delete('households/{household}/notes/{note}', [FamilyNoteController::class, 'destroy']);
     });
 });
