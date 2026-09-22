@@ -8,10 +8,9 @@
 >
 > **Status:** Phase 0 done. Phase 1 (auth, households, members, invite
 > links + QR, placeholder activation, user profile edit, member profile
-> edit + avatar upload) is implemented and tested — see `ARCHITECTURE.md`
-> → "API Surface" and `DECISIONS.md` for what exists and why. Only a
-> richer household profile/settings endpoint (no mobile UI defined yet)
-> remains.
+> edit + avatar upload, household profile settings) is fully implemented
+> and tested — see `ARCHITECTURE.md` → "API Surface" and `DECISIONS.md`
+> for what exists and why.
 
 ## Ground Rules
 
@@ -41,7 +40,7 @@
 
 ---
 
-## Phase 1 — Accounts & Households (in progress — richer household settings remain)
+## Phase 1 — Accounts & Households ✅ Done
 
 ### Done
 
@@ -80,12 +79,12 @@
 - **Household switching support** — already possible data-model-wise
   (`GET /api/v1/households` returns all memberships); no backend gap here,
   this was a mobile-only UI task (now built).
-
-### Remaining backend work
-
-- **Household profile (richer)** — extend the `households` resource/update
-  payload once mobile defines what "settings" means (avatar, timezone,
-  etc.) — don't speculate on fields ahead of the UI.
+- **Household profile settings** — `households.color` and `households.emoji`
+  (nullable, hex/emoji strings), settable on `POST /api/v1/households` and
+  `PATCH /api/v1/households/{household}` (Owner-only, per the existing
+  `HouseholdPolicy::update`). Cosmetic only, not validated against a fixed
+  palette server-side so the mobile-side color/emoji options can change
+  without a backend deploy.
 
 ### Milestone
 
@@ -291,7 +290,7 @@ RevenueCat as the source of truth for payment state only.
 | Phase | Focus | New tables (rough) | Depends on |
 |---|---|---|---|
 | 0 | Foundation | users, households, members, household_memberships | — ✅ |
-| 1 | Accounts + Households + Members | household_invitations, member_activation_tokens | Phase 0 (nearly done — richer household settings remain) |
+| 1 | Accounts + Households + Members | household_invitations, member_activation_tokens | Phase 0 — ✅ Done |
 | 2 | Home + Family Feed | family_notes, announcements | Phase 1 |
 | 3 | Calendar + Scheduling | events, event_participants, event_households, recurring_rules | Phase 1 |
 | 4 | Family Requests | requests, request_conditions | Phase 1, 3 (for promote-to-event) |
