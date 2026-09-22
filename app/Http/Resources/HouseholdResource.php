@@ -12,6 +12,8 @@ class HouseholdResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'color' => $this->color,
+            'emoji' => $this->emoji,
             // Present when loaded via the authenticated member's pivot,
             // e.g. GET /households listing "my households".
             'my_role' => $this->when(

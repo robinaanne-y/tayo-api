@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'created_by_user_id'])]
+#[Fillable(['name', 'color', 'emoji', 'created_by_user_id'])]
 class Household extends Model
 {
     /** @use HasFactory<HouseholdFactory> */

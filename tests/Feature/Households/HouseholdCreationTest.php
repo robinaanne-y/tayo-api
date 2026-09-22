@@ -53,6 +53,37 @@ class HouseholdCreationTest extends TestCase
             ->assertJsonValidationErrors('name');
     }
 
+    public function test_a_household_can_be_created_with_a_color_and_emoji(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->postJson('/api/v1/households', [
+            'name' => 'Santos Household',
+            'color' => '#4FBDAD',
+            'emoji' => '🏡',
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.color', '#4FBDAD')
+            ->assertJsonPath('data.emoji', '🏡');
+
+        $this->assertDatabaseHas('households', [
+            'name' => 'Santos Household',
+            'color' => '#4FBDAD',
+            'emoji' => '🏡',
+        ]);
+    }
+
+    public function test_household_color_must_be_a_valid_hex_value(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->postJson('/api/v1/households', [
+            'name' => 'Santos Household',
+            'color' => 'teal',
+        ])->assertUnprocessable()->assertJsonValidationErrors('color');
+    }
+
     public function test_index_lists_the_users_households_with_member_counts(): void
     {
         $user = User::factory()->create();
