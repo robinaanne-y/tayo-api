@@ -10,7 +10,8 @@
 > links + QR, placeholder activation, user profile edit, member profile
 > edit + avatar upload, household profile settings) is fully implemented
 > and tested — see `ARCHITECTURE.md` → "API Surface" and `DECISIONS.md`
-> for what exists and why.
+> for what exists and why. Phase 2 is in progress: Family Notes is done;
+> the `GET /api/v1/home` aggregation endpoint and announcements remain.
 
 ## Ground Rules
 
@@ -94,21 +95,35 @@ real endpoints. Invite link and placeholder activation tested end to end.
 
 ---
 
-## Phase 2 — Home & Family Feed
+## Phase 2 — Home & Family Feed (in progress — Family Notes done)
 
 Backend delivers one aggregation endpoint; it must not become a second
 source of truth for data owned by other modules (see `ARCHITECTURE.md` §9
 "Home Architecture" in mobile docs).
 
+### Done
+
+- **Family notes** — `family_notes` table (`household_id`,
+  `author_member_id`, `content`, `expires_at`). `GET`/`POST`/`DELETE
+  /api/v1/households/{household}/notes`. Any household member can create
+  one (via `HouseholdPolicy::addNote`); only the author or an Owner/Adult
+  can delete one (`HouseholdPolicy::deleteNote`). `content` capped at 280
+  characters, `expires_at` server-set to `now()->addDay()` — not
+  client-settable. `FamilyNote::scopeActive` excludes expired notes from
+  `index`; an hourly `Schedule::call` in `routes/console.php` deletes
+  expired rows so the table doesn't grow unbounded (not
+  exact-to-the-second — the query-time filter is what keeps `index`
+  correct in the meantime, per the Milestone below).
+
+### Remaining backend work
+
 - `GET /api/v1/home` — assembles today's events, pending requests, family
   notes, announcements, today's meal, grocery summary, upcoming trips,
   household status from the owning modules. Scoped to the authenticated
-  member + selected household.
-- `family_notes` table (`household_id`, `author_member_id`, `content`,
-  `expires_at`) + `POST`/`GET`/`DELETE
-  /api/v1/households/{household}/notes`.
-- Scheduled job to purge/deactivate expired notes (Laravel Scheduler,
-  not exact-to-the-second).
+  member + selected household. Deferred until there are enough real
+  sources to aggregate — Family Notes is the only one that exists so far,
+  so the mobile client calls `GET .../notes` directly rather than through
+  a one-source "aggregation" endpoint.
 - `announcements` table + basic CRUD, household-scoped.
 - No new table for "reminders" yet — reminders in Phase 2 are just
   read-through of other modules' due dates; a dedicated reminders/
