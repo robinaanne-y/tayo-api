@@ -63,4 +63,20 @@ class HouseholdAuthorizationTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.name', 'New Name');
     }
+
+    public function test_the_owner_can_update_the_households_color_and_emoji(): void
+    {
+        $owner = User::factory()->create();
+        $household = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $this->memberFor($owner, $household, HouseholdRole::Owner);
+
+        $this->actingAs($owner)
+            ->patchJson("/api/v1/households/{$household->id}", [
+                'color' => '#5B9BD5',
+                'emoji' => '🌿',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.color', '#5B9BD5')
+            ->assertJsonPath('data.emoji', '🌿');
+    }
 }
