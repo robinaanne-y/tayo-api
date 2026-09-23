@@ -55,8 +55,11 @@ Routes are defined in `routes/api.php` and currently cover:
   .../members/{member}/activation-link`, public `GET /activation/{token}`
   preview, `POST /activation/{token}/claim`)
 - Family notes (`GET`/`POST`/`DELETE .../households/{household}/notes`) —
-  the first Phase 2 endpoint; see `ROADMAP.md` → Phase 2 for what's still
-  missing (a `GET /api/v1/home` aggregation endpoint, announcements)
+  any member can post, author-or-Owner/Adult can delete
+- Announcements (`GET`/`POST`/`DELETE
+  .../households/{household}/announcements`) — Owner/Adult-only post,
+  any member can read; see `ROADMAP.md` → Phase 2 for what's still
+  missing (a `GET /api/v1/home` aggregation endpoint)
 
 There is currently no household or member delete endpoint. New capabilities should
 be added under the existing `/api/v1` namespace.

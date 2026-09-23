@@ -10,8 +10,9 @@
 > links + QR, placeholder activation, user profile edit, member profile
 > edit + avatar upload, household profile settings) is fully implemented
 > and tested — see `ARCHITECTURE.md` → "API Surface" and `DECISIONS.md`
-> for what exists and why. Phase 2 is in progress: Family Notes is done;
-> the `GET /api/v1/home` aggregation endpoint and announcements remain.
+> for what exists and why. Phase 2 is in progress: Family Notes and
+> Announcements are done; only the `GET /api/v1/home` aggregation
+> endpoint remains.
 
 ## Ground Rules
 
@@ -114,6 +115,16 @@ source of truth for data owned by other modules (see `ARCHITECTURE.md` §9
   expired rows so the table doesn't grow unbounded (not
   exact-to-the-second — the query-time filter is what keeps `index`
   correct in the meantime, per the Milestone below).
+- **Announcements** — `announcements` table (`household_id`,
+  `author_member_id`, `content`), no `expires_at` — these are longer-lived
+  than a family note and are removed manually rather than expiring.
+  `GET`/`POST`/`DELETE /api/v1/households/{household}/announcements`.
+  Unlike notes, only an Owner/Adult can create one
+  (`HouseholdPolicy::addAnnouncement`) — a household bulletin, not a
+  free-for-all; any member can read the list. Delete follows the same
+  author-or-Owner/Adult rule as notes (`HouseholdPolicy::deleteAnnouncement`).
+  `content` capped at 500 characters (longer than a note's 280, since
+  these are meant to be read in full rather than glanced at).
 
 ### Remaining backend work
 
@@ -121,10 +132,9 @@ source of truth for data owned by other modules (see `ARCHITECTURE.md` §9
   notes, announcements, today's meal, grocery summary, upcoming trips,
   household status from the owning modules. Scoped to the authenticated
   member + selected household. Deferred until there are enough real
-  sources to aggregate — Family Notes is the only one that exists so far,
-  so the mobile client calls `GET .../notes` directly rather than through
-  a one-source "aggregation" endpoint.
-- `announcements` table + basic CRUD, household-scoped.
+  sources to aggregate — Family Notes and Announcements are the only ones
+  that exist so far, so the mobile client calls their endpoints directly
+  rather than through a two-source "aggregation" endpoint.
 - No new table for "reminders" yet — reminders in Phase 2 are just
   read-through of other modules' due dates; a dedicated reminders/
   notification-preferences table belongs to Phase 9.
