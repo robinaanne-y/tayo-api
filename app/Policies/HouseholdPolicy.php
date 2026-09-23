@@ -3,6 +3,7 @@
 namespace App\Policies;
 
 use App\Enums\HouseholdRole;
+use App\Models\Announcement;
 use App\Models\FamilyNote;
 use App\Models\Household;
 use App\Models\User;
@@ -56,6 +57,29 @@ class HouseholdPolicy
         }
 
         return $note->author_member_id === $membership->member_id
+            || ($membership->role?->canManageHousehold() ?? false);
+    }
+
+    /**
+     * Unlike a family note, an announcement is a household bulletin —
+     * only an Owner/Adult can post one.
+     */
+    public function addAnnouncement(User $user, Household $household): bool
+    {
+        $role = $user->membershipFor($household)?->role;
+
+        return $role?->canManageHousehold() ?? false;
+    }
+
+    public function deleteAnnouncement(User $user, Household $household, Announcement $announcement): bool
+    {
+        $membership = $user->membershipFor($household);
+
+        if ($membership === null) {
+            return false;
+        }
+
+        return $announcement->author_member_id === $membership->member_id
             || ($membership->role?->canManageHousehold() ?? false);
     }
 }

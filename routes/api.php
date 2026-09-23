@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\ActivationController;
+use App\Http\Controllers\Api\V1\AnnouncementController;
 use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\FamilyNoteController;
 use App\Http\Controllers\Api\V1\HouseholdController;
@@ -48,5 +49,12 @@ Route::prefix('v1')->group(function () {
         Route::get('households/{household}/notes', [FamilyNoteController::class, 'index']);
         Route::post('households/{household}/notes', [FamilyNoteController::class, 'store']);
         Route::delete('households/{household}/notes/{note}', [FamilyNoteController::class, 'destroy']);
+
+        Route::get('households/{household}/announcements', [AnnouncementController::class, 'index']);
+        Route::post('households/{household}/announcements', [AnnouncementController::class, 'store']);
+        Route::delete(
+            'households/{household}/announcements/{announcement}',
+            [AnnouncementController::class, 'destroy'],
+        );
     });
 });

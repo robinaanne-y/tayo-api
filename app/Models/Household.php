@@ -43,4 +43,9 @@ class Household extends Model
     {
         return $this->hasMany(FamilyNote::class);
     }
+
+    public function announcements(): HasMany
+    {
+        return $this->hasMany(Announcement::class);
+    }
 }
