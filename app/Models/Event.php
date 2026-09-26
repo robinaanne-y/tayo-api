@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-#[Fillable(['household_id', 'creator_member_id', 'title', 'description', 'start_at', 'end_at', 'visibility'])]
+#[Fillable(['household_id', 'creator_member_id', 'title', 'description', 'location', 'start_at', 'end_at', 'visibility'])]
 class Event extends Model
 {
     /** @use HasFactory<EventFactory> */

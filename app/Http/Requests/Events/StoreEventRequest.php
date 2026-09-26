@@ -18,6 +18,7 @@ class StoreEventRequest extends FormRequest
         return [
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
+            'location' => ['nullable', 'string', 'max:255'],
             'start_at' => ['required', 'date'],
             'end_at' => ['required', 'date', 'after_or_equal:start_at'],
             'visibility' => ['required', Rule::in(['private', 'household'])],

@@ -365,4 +365,39 @@ class EventTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors('participant_member_ids');
     }
+
+    public function test_an_event_can_be_created_and_updated_with_a_location(): void
+    {
+        $owner = User::factory()->create();
+        $household = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $this->memberFor($owner, $household, HouseholdRole::Owner);
+
+        $response = $this->actingAs($owner)->postJson("/api/v1/households/{$household->id}/events", [
+            'title' => 'Family dinner',
+            'location' => "Grandma's House",
+            'start_at' => now()->addHour()->toIso8601String(),
+            'end_at' => now()->addHours(2)->toIso8601String(),
+            'visibility' => 'household',
+        ]);
+
+        $response->assertCreated()->assertJsonPath('data.location', "Grandma's House");
+
+        $eventId = $response->json('data.id');
+        $this->assertDatabaseHas('events', ['id' => $eventId, 'location' => "Grandma's House"]);
+
+        $event = Event::find($eventId);
+
+        $updateResponse = $this->actingAs($owner)->putJson(
+            "/api/v1/households/{$household->id}/events/{$eventId}",
+            [
+                'title' => 'Family dinner',
+                'location' => 'Uncle Bob\'s Place',
+                'start_at' => $event->start_at->toIso8601String(),
+                'end_at' => $event->end_at->toIso8601String(),
+                'visibility' => 'household',
+            ],
+        );
+
+        $updateResponse->assertOk()->assertJsonPath('data.location', "Uncle Bob's Place");
+    }
 }

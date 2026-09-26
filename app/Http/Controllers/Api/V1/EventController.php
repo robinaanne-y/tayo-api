@@ -47,6 +47,7 @@ class EventController extends Controller
             'creator_member_id' => $request->user()->member->id,
             'title' => $request->validated('title'),
             'description' => $request->validated('description'),
+            'location' => $request->validated('location'),
             'start_at' => $request->validated('start_at'),
             'end_at' => $request->validated('end_at'),
             'visibility' => $request->validated('visibility'),
@@ -74,6 +75,7 @@ class EventController extends Controller
         $event->update([
             'title' => $request->validated('title'),
             'description' => $request->validated('description'),
+            'location' => $request->validated('location'),
             'start_at' => $request->validated('start_at'),
             'end_at' => $request->validated('end_at'),
             'visibility' => $request->validated('visibility'),
