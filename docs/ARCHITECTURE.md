@@ -60,6 +60,12 @@ Routes are defined in `routes/api.php` and currently cover:
   .../households/{household}/announcements`) — Owner/Adult-only post,
   any member can read; see `ROADMAP.md` → Phase 2 for what's still
   missing (a `GET /api/v1/home` aggregation endpoint)
+- Events (`GET`/`POST`/`PUT`/`DELETE .../households/{household}/events`)
+  — any member can create an event, private (creator-only) or
+  household-visible; `GET` accepts optional `from`/`to` range filters for
+  calendar views; see `ROADMAP.md` → Phase 3 for the full future shape
+  (recurring events, cross-household visibility, participants, location)
+  this schema is deliberately left room to grow into
 
 There is currently no household or member delete endpoint. New capabilities should
 be added under the existing `/api/v1` namespace.
@@ -79,6 +85,47 @@ Member 1---* HouseholdMembership *---1 Household
 
 Household roles are represented by the `HouseholdRole` enum: `owner`, `adult`,
 `minor`, and `child`.
+
+> **Foundation note — Events (Phase 3 core slice):**
+>
+> `events` (`household_id`, `creator_member_id`, `title`, `description`,
+> `start_at`, `end_at`, `visibility`) follows the same shape as
+> `family_notes`/`announcements` and shares `HouseholdPolicy` rather than
+> getting its own policy class (`addEvent`/`viewEvent`/`updateEvent`/
+> `deleteEvent`). Two things were deliberately kept minimal for this slice,
+> with room to grow left in the schema rather than the code:
+>
+> - **Visibility** is a plain `string` column (not a DB enum), validated to
+>   just `private`/`household` for now. A `private` event is visible/
+>   editable only by its creator; a `household` event is visible to every
+>   member, and manageable by its creator or by an Owner/Adult (mirroring
+>   `deleteNote`'s moderation rule) — but never by a non-creating Owner/Adult
+>   when the event is `private`, since that would leak a personal event's
+>   existence to someone it wasn't shared with. The roadmap's
+>   `selected_households`/`all_member_households` levels are additive
+>   validation-rule changes later, not a migration.
+> - **Timezone**: `start_at`/`end_at` are stored as-is (UTC, matching the app
+>   default) with no per-household or per-member timezone column — none
+>   exists anywhere in the schema yet. The mobile client is responsible for
+>   converting device-local time to UTC before sending and back for display.
+>   A dedicated timezone column can be added if/when the product needs
+>   per-household time zones (e.g. members in different countries).
+>
+> **Participants**: `event_participants` (`event_id`, `member_id`) is a
+> plain pivot — no custom pivot model, unlike `household_memberships`/
+> `HouseholdMembership`, since it carries no extra columns. `Event::participants()`
+> is a `belongsToMany(Member::class, 'event_participants')`, synced (not
+> just attached) on both create and update so removing a participant is
+> as simple as omitting their ID from the next request. Any member listed
+> in `participant_member_ids` must belong to the event's household — the
+> first `withValidator()` closure in this codebase, since the existing
+> "does this belong to this household" checks (`eventFor`/`membershipFor`)
+> are single-ID controller helpers, not array validation. `EventResource`
+> reuses `MemberResource` for the `participants` array rather than a new
+> nested shape.
+>
+> Recurring events and location are not modeled yet — deferred to a later
+> increment per the roadmap.
 
 ## Authentication And Authorization
 

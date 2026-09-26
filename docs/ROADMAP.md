@@ -12,7 +12,12 @@
 > and tested — see `ARCHITECTURE.md` → "API Surface" and `DECISIONS.md`
 > for what exists and why. Phase 2 is in progress: Family Notes and
 > Announcements are done; only the `GET /api/v1/home` aggregation
-> endpoint remains.
+> endpoint remains. Phase 3's core slice is done: event CRUD with
+> `private`/`household` visibility and calendar-range querying — see the
+> Phase 3 section below and `ARCHITECTURE.md` → "Foundation note — Events"
+> for what's implemented now versus deferred (recurring events,
+> `selected_households`/`all_member_households` visibility, participants,
+> location).
 
 ## Ground Rules
 
@@ -148,25 +153,46 @@ client stitching together five separate calls.
 
 ## Phase 3 — Calendar & Scheduling
 
-- Tables: `events`, `event_participants`, `event_households`,
-  `recurring_rules`.
-- `events` fields: creator/member, title, description, start_at, end_at,
-  location, visibility, recurrence reference.
-- Visibility enum: `private`, `household`, `selected_households`,
-  `all_member_households` — every read path must filter through this,
-  not just the write path.
-- Endpoints under `/api/v1/households/{household}/events` plus a
-  cross-household `GET /api/v1/events` that respects visibility for the
-  authenticated member.
-- Authorization: event creator can edit/delete; household Owner/Adult can
-  manage household-visibility events; policy must check membership in
-  *every* household an event is shared to, not just the creating one.
+### Core slice ✅ Implemented
+
+- `events` table: `household_id`, `creator_member_id`, `title`,
+  `description`, `start_at`, `end_at`, `visibility` (string, not a DB
+  enum — see below), indexed on `(household_id, start_at)` for range
+  queries.
+- Endpoints: `GET`/`POST`/`PUT`/`DELETE .../households/{household}/events`,
+  with `GET` supporting `?from=&to=` range filtering for month views.
+- Visibility: only `private` (creator-only) and `household` (every
+  member) for now — validated as a plain string rather than a DB enum
+  specifically so the two levels below don't require a migration to add.
+- Authorization (in `HouseholdPolicy`, alongside Notes/Announcements
+  rather than a new policy class): creator can always edit/delete their
+  own event; Owner/Adult can additionally manage a `household`-visibility
+  event they didn't create; a `private` event stays creator-only
+  regardless of role.
+- No timezone column anywhere yet (`Household`/`Member` included) —
+  `start_at`/`end_at` are stored as sent (UTC), and the mobile client
+  converts device-local time at the edges.
+- `event_participants` table (`event_id`, `member_id`, plain pivot):
+  any household member can be tagged on an event via
+  `participant_member_ids` on create/update, synced (not attached) each
+  time. Validated against the event's own household membership list.
+
+### Deferred to a later increment
+
+- `event_households`, `recurring_rules` tables.
+- `location` field, recurrence.
+- `selected_households`/`all_member_households` visibility levels and the
+  cross-household `GET /api/v1/events` endpoint — every read path will
+  need to check membership in *every* household an event is shared to,
+  not just the creating one, once these land.
+- Member filtering.
 
 ### Milestone
 
-A household can run its shared calendar entirely through the API,
-including a member who belongs to more than one household seeing the
-right subset of events in each.
+Partially met: a household can run its own shared calendar (event CRUD,
+private vs. shared visibility, month-range queries) through the API. A
+member seeing the right subset of events across *multiple* households,
+and everything else in "Deferred" above, remains for a later pass.
 
 ---
 

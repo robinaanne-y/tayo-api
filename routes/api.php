@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\ActivationController;
 use App\Http\Controllers\Api\V1\AnnouncementController;
 use App\Http\Controllers\Api\V1\Auth\AuthController;
+use App\Http\Controllers\Api\V1\EventController;
 use App\Http\Controllers\Api\V1\FamilyNoteController;
 use App\Http\Controllers\Api\V1\HouseholdController;
 use App\Http\Controllers\Api\V1\InvitationController;
@@ -56,5 +57,10 @@ Route::prefix('v1')->group(function () {
             'households/{household}/announcements/{announcement}',
             [AnnouncementController::class, 'destroy'],
         );
+
+        Route::get('households/{household}/events', [EventController::class, 'index']);
+        Route::post('households/{household}/events', [EventController::class, 'store']);
+        Route::put('households/{household}/events/{event}', [EventController::class, 'update']);
+        Route::delete('households/{household}/events/{event}', [EventController::class, 'destroy']);
     });
 });
