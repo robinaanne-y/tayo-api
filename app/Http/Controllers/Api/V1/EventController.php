@@ -24,7 +24,7 @@ class EventController extends Controller
                 $q->where('visibility', 'household')
                     ->orWhere('creator_member_id', $memberId);
             })
-            ->with('creator');
+            ->with(['creator', 'participants']);
 
         if ($request->filled('from')) {
             $query->where('end_at', '>=', $request->date('from'));
@@ -52,7 +52,8 @@ class EventController extends Controller
             'visibility' => $request->validated('visibility'),
         ]);
 
-        $event->load('creator');
+        $event->participants()->sync($request->validated('participant_member_ids') ?? []);
+        $event->load(['creator', 'participants']);
 
         return response()->json([
             'data' => EventResource::make($event),
@@ -78,7 +79,8 @@ class EventController extends Controller
             'visibility' => $request->validated('visibility'),
         ]);
 
-        $event->load('creator');
+        $event->participants()->sync($request->validated('participant_member_ids') ?? []);
+        $event->load(['creator', 'participants']);
 
         return response()->json([
             'data' => EventResource::make($event),

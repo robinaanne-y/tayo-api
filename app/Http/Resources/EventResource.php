@@ -19,6 +19,7 @@ class EventResource extends JsonResource
             'start_at' => $this->start_at,
             'end_at' => $this->end_at,
             'visibility' => $this->visibility,
+            'participants' => MemberResource::collection($this->whenLoaded('participants')),
             'created_at' => $this->created_at,
         ];
     }

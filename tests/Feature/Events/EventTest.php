@@ -283,4 +283,86 @@ class EventTest extends TestCase
             ->deleteJson("/api/v1/households/{$otherHousehold->id}/events/{$event->id}")
             ->assertNotFound();
     }
+
+    public function test_an_event_can_be_created_with_participants(): void
+    {
+        $owner = User::factory()->create();
+        $household = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $ownerMember = $this->memberFor($owner, $household, HouseholdRole::Owner);
+
+        $adultUser = User::factory()->create();
+        $adultMember = $this->memberFor($adultUser, $household, HouseholdRole::Adult);
+
+        $response = $this->actingAs($owner)->postJson("/api/v1/households/{$household->id}/events", [
+            'title' => 'Family trip',
+            'start_at' => now()->addHour()->toIso8601String(),
+            'end_at' => now()->addHours(2)->toIso8601String(),
+            'visibility' => 'household',
+            'participant_member_ids' => [$ownerMember->id, $adultMember->id],
+        ]);
+
+        $response->assertCreated();
+        $participantIds = collect($response->json('data.participants'))->pluck('id')->all();
+        $this->assertEqualsCanonicalizing([$ownerMember->id, $adultMember->id], $participantIds);
+
+        $this->assertDatabaseHas('event_participants', [
+            'event_id' => $response->json('data.id'),
+            'member_id' => $adultMember->id,
+        ]);
+    }
+
+    public function test_updating_an_events_participants_replaces_the_previous_list(): void
+    {
+        $owner = User::factory()->create();
+        $household = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $ownerMember = $this->memberFor($owner, $household, HouseholdRole::Owner);
+
+        $adultUser = User::factory()->create();
+        $adultMember = $this->memberFor($adultUser, $household, HouseholdRole::Adult);
+
+        $event = Event::factory()->create([
+            'household_id' => $household->id,
+            'creator_member_id' => $ownerMember->id,
+            'visibility' => 'household',
+        ]);
+        $event->participants()->sync([$ownerMember->id]);
+
+        $response = $this->actingAs($owner)->putJson("/api/v1/households/{$household->id}/events/{$event->id}", [
+            'title' => $event->title,
+            'start_at' => $event->start_at->toIso8601String(),
+            'end_at' => $event->end_at->toIso8601String(),
+            'visibility' => 'household',
+            'participant_member_ids' => [$adultMember->id],
+        ]);
+
+        $response->assertOk();
+        $participantIds = collect($response->json('data.participants'))->pluck('id')->all();
+        $this->assertEqualsCanonicalizing([$adultMember->id], $participantIds);
+
+        $this->assertDatabaseMissing('event_participants', [
+            'event_id' => $event->id,
+            'member_id' => $ownerMember->id,
+        ]);
+    }
+
+    public function test_a_participant_from_a_different_household_is_rejected(): void
+    {
+        $owner = User::factory()->create();
+        $household = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $this->memberFor($owner, $household, HouseholdRole::Owner);
+
+        $otherOwner = User::factory()->create();
+        $otherHousehold = Household::factory()->create(['created_by_user_id' => $otherOwner->id]);
+        $outsiderMember = $this->memberFor($otherOwner, $otherHousehold, HouseholdRole::Owner);
+
+        $this->actingAs($owner)->postJson("/api/v1/households/{$household->id}/events", [
+            'title' => 'Family trip',
+            'start_at' => now()->addHour()->toIso8601String(),
+            'end_at' => now()->addHours(2)->toIso8601String(),
+            'visibility' => 'household',
+            'participant_member_ids' => [$outsiderMember->id],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('participant_member_ids');
+    }
 }
