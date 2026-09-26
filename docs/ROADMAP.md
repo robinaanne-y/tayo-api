@@ -176,16 +176,19 @@ client stitching together five separate calls.
   any household member can be tagged on an event via
   `participant_member_ids` on create/update, synced (not attached) each
   time. Validated against the event's own household membership list.
+- `events.location` (nullable string, free-text — no geocoding).
+- Member filtering — implemented entirely client-side (the mobile app
+  filters the events `index` already returns by participant/creator);
+  no API change was needed since that data was already in every payload.
 
 ### Deferred to a later increment
 
 - `event_households`, `recurring_rules` tables.
-- `location` field, recurrence.
+- Recurrence.
 - `selected_households`/`all_member_households` visibility levels and the
   cross-household `GET /api/v1/events` endpoint — every read path will
   need to check membership in *every* household an event is shared to,
   not just the creating one, once these land.
-- Member filtering.
 
 ### Milestone
 

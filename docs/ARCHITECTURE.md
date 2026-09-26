@@ -124,8 +124,14 @@ Household roles are represented by the `HouseholdRole` enum: `owner`, `adult`,
 > reuses `MemberResource` for the `participants` array rather than a new
 > nested shape.
 >
-> Recurring events and location are not modeled yet — deferred to a later
-> increment per the roadmap.
+> **Location**: `events.location` is a plain nullable `string`, no
+> geocoding or structured address — free-text, matching how the mockup's
+> "Add location" field works. No membership/visibility implications, so
+> no policy or authorization changes were needed for it, unlike
+> visibility or participants.
+>
+> Recurring events and cross-household visibility are not modeled yet —
+> deferred to a later increment per the roadmap.
 
 ## Authentication And Authorization
 
