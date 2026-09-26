@@ -172,10 +172,14 @@ client stitching together five separate calls.
 - No timezone column anywhere yet (`Household`/`Member` included) —
   `start_at`/`end_at` are stored as sent (UTC), and the mobile client
   converts device-local time at the edges.
+- `event_participants` table (`event_id`, `member_id`, plain pivot):
+  any household member can be tagged on an event via
+  `participant_member_ids` on create/update, synced (not attached) each
+  time. Validated against the event's own household membership list.
 
 ### Deferred to a later increment
 
-- `event_participants`, `event_households`, `recurring_rules` tables.
+- `event_households`, `recurring_rules` tables.
 - `location` field, recurrence.
 - `selected_households`/`all_member_households` visibility levels and the
   cross-household `GET /api/v1/events` endpoint — every read path will

@@ -111,8 +111,21 @@ Household roles are represented by the `HouseholdRole` enum: `owner`, `adult`,
 >   A dedicated timezone column can be added if/when the product needs
 >   per-household time zones (e.g. members in different countries).
 >
-> Recurring events, participants, and location are not modeled yet —
-> deferred to a later increment per the roadmap.
+> **Participants**: `event_participants` (`event_id`, `member_id`) is a
+> plain pivot — no custom pivot model, unlike `household_memberships`/
+> `HouseholdMembership`, since it carries no extra columns. `Event::participants()`
+> is a `belongsToMany(Member::class, 'event_participants')`, synced (not
+> just attached) on both create and update so removing a participant is
+> as simple as omitting their ID from the next request. Any member listed
+> in `participant_member_ids` must belong to the event's household — the
+> first `withValidator()` closure in this codebase, since the existing
+> "does this belong to this household" checks (`eventFor`/`membershipFor`)
+> are single-ID controller helpers, not array validation. `EventResource`
+> reuses `MemberResource` for the `participants` array rather than a new
+> nested shape.
+>
+> Recurring events and location are not modeled yet — deferred to a later
+> increment per the roadmap.
 
 ## Authentication And Authorization
 
