@@ -94,8 +94,12 @@ class HouseholdPolicy
     }
 
     /**
-     * A private event is only visible to its creator; a household event is
-     * visible to every member.
+     * A private event is only visible to its creator; a household,
+     * selected_households, or all_member_households event is visible to
+     * every member of $household — this method doesn't itself check
+     * whether $household is actually one the event was shared into
+     * (EventController::index does that); it just answers "is this member
+     * allowed to see this event within this household's context".
      */
     public function viewEvent(User $user, Household $household, Event $event): bool
     {
@@ -105,7 +109,7 @@ class HouseholdPolicy
             return false;
         }
 
-        return $event->visibility === 'household'
+        return in_array($event->visibility, ['household', 'selected_households', 'all_member_households'], true)
             || $event->creator_member_id === $membership->member_id;
     }
 
@@ -136,7 +140,11 @@ class HouseholdPolicy
             return true;
         }
 
-        return $event->visibility === 'household'
+        // Reached only through the event's home household route (a
+        // cross-household attempt already 404s in EventController::eventFor),
+        // so this never grants a shared-into household's Owner/Adult edit
+        // rights — only the home household's.
+        return in_array($event->visibility, ['household', 'selected_households', 'all_member_households'], true)
             && ($membership->role?->canManageHousehold() ?? false);
     }
 }

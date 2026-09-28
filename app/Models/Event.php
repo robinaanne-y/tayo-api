@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-#[Fillable(['household_id', 'creator_member_id', 'title', 'description', 'start_at', 'end_at', 'visibility'])]
+#[Fillable(['household_id', 'creator_member_id', 'title', 'description', 'location', 'start_at', 'end_at', 'visibility', 'recurring_rule_id'])]
 class Event extends Model
 {
     /** @use HasFactory<EventFactory> */
@@ -28,6 +28,11 @@ class Event extends Model
         return $this->belongsTo(Household::class);
     }
 
+    public function recurringRule(): BelongsTo
+    {
+        return $this->belongsTo(RecurringRule::class);
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(Member::class, 'creator_member_id');
@@ -36,5 +41,14 @@ class Event extends Model
     public function participants(): BelongsToMany
     {
         return $this->belongsToMany(Member::class, 'event_participants')->withTimestamps();
+    }
+
+    /**
+     * Additional households a `selected_households` event is shared into,
+     * beyond its own home `household_id`.
+     */
+    public function sharedHouseholds(): BelongsToMany
+    {
+        return $this->belongsToMany(Household::class, 'event_households')->withTimestamps();
     }
 }
