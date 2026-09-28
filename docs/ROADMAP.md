@@ -180,22 +180,30 @@ client stitching together five separate calls.
 - Member filtering — implemented entirely client-side (the mobile app
   filters the events `index` already returns by participant/creator);
   no API change was needed since that data was already in every payload.
+- Multi-household visibility: `selected_households` (explicit list, via
+  the new `event_households` pivot / `shared_household_ids`) and
+  `all_member_households` (every household the creator belongs to,
+  computed live — no stored rows). `EventController::index()` now checks
+  all three "this event belongs in this household's list" paths (native,
+  shared-in explicitly, shared-in via all-member-households) instead of
+  a plain `household_id = X` scope. Sharing only widens *visibility*,
+  never edit/delete rights — those stay scoped to the event's home
+  household regardless of how many households it's shared to.
 
 ### Deferred to a later increment
 
-- `event_households`, `recurring_rules` tables.
-- Recurrence.
-- `selected_households`/`all_member_households` visibility levels and the
-  cross-household `GET /api/v1/events` endpoint — every read path will
-  need to check membership in *every* household an event is shared to,
-  not just the creating one, once these land.
+- `recurring_rules` table and recurrence.
+- The cross-household `GET /api/v1/events` endpoint — the per-household
+  `index` enhancement above already satisfies the milestone below since
+  the mobile app has no "all households combined" screen; a combined-view
+  endpoint stays deferred until one exists to call it.
 
 ### Milestone
 
-Partially met: a household can run its own shared calendar (event CRUD,
-private vs. shared visibility, month-range queries) through the API. A
-member seeing the right subset of events across *multiple* households,
-and everything else in "Deferred" above, remains for a later pass.
+Met for the non-recurring case: a household can run its own shared
+calendar (event CRUD, all 4 visibility levels, month-range queries)
+through the API, and a member belonging to multiple households sees the
+right subset of events in each. Recurring events remain for a later pass.
 
 ---
 

@@ -130,8 +130,33 @@ Household roles are represented by the `HouseholdRole` enum: `owner`, `adult`,
 > no policy or authorization changes were needed for it, unlike
 > visibility or participants.
 >
-> Recurring events and cross-household visibility are not modeled yet —
-> deferred to a later increment per the roadmap.
+> **Multi-household visibility**: `visibility` now has 4 values —
+> `private`, `household` (both as before), `selected_households` (the
+> creator explicitly picks *other* households they also belong to, via
+> `shared_household_ids` synced into the new `event_households` plain
+> pivot — `Event::sharedHouseholds()`), and `all_member_households`
+> (visible to every household the creator belongs to, computed live from
+> `Member::households()` at read time — no rows stored for it). Sharing
+> only ever *widens who can see* the event, never who can edit/delete it:
+> `HouseholdPolicy::manageEvent()` is only reachable through the event's
+> home household route (`EventController::eventFor()` 404s any other
+> household's route for that same event), so a shared-into household's
+> Owner/Adult never gains edit rights, only visibility.
+>
+> `EventController::index()` changed from `$household->events()` (a
+> straight `household_id = X` scope) to a 3-branch `Event::query()`: native
+> to this household (per its own visibility, as before), shared in via
+> `selected_households` (`whereHas('sharedHouseholds', ...)`), or shared
+> in via `all_member_households` (`whereHas('creator.households', ...)`).
+> No standalone cross-household `GET /api/v1/events` endpoint was added —
+> the mobile app has no "all my households combined" screen to call it
+> (Calendar always operates within one selected household via the
+> switcher), so the per-household `index` enhancement is what actually
+> satisfies the roadmap's milestone; a combined-view endpoint stays
+> deferred until there's a real screen to consume it.
+>
+> Recurring events are not modeled yet — deferred to a later increment
+> per the roadmap.
 
 ## Authentication And Authorization
 
