@@ -22,7 +22,31 @@ class EventResource extends JsonResource
             'visibility' => $this->visibility,
             'participants' => MemberResource::collection($this->whenLoaded('participants')),
             'shared_households' => HouseholdResource::collection($this->whenLoaded('sharedHouseholds')),
+            'is_recurring' => $this->recurring_rule_id !== null,
+            'recurrence_summary' => $this->whenLoaded('recurringRule', fn () => $this->recurringRule ? $this->summarizeRecurrence($this->recurringRule) : null),
             'created_at' => $this->created_at,
         ];
+    }
+
+    private function summarizeRecurrence(\App\Models\RecurringRule $rule): string
+    {
+        $unit = match ($rule->frequency) {
+            'daily' => 'day',
+            'weekly' => 'week',
+            'monthly' => 'month',
+            default => $rule->frequency,
+        };
+
+        $summary = $rule->interval > 1
+            ? "Repeats every {$rule->interval} {$unit}s"
+            : "Repeats {$rule->frequency}";
+
+        if ($rule->frequency === 'weekly' && !empty($rule->by_day)) {
+            $names = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+            $days = collect($rule->by_day)->sort()->map(fn ($d) => $names[$d])->implode(', ');
+            $summary .= " on {$days}";
+        }
+
+        return $summary;
     }
 }

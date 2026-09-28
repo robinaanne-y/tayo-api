@@ -36,6 +36,11 @@ class UpdateEventRequest extends FormRequest
             // conditional on visibility.
             'shared_household_ids' => ['array'],
             'shared_household_ids.*' => ['integer'],
+
+            // The recurrence pattern itself is set only at creation and is
+            // immutable afterward -- this only controls how far an edit to
+            // the other fields above propagates across a series.
+            'edit_scope' => ['sometimes', Rule::in(['this', 'following'])],
         ];
     }
 

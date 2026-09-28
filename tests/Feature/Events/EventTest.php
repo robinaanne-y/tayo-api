@@ -564,4 +564,252 @@ class EventTest extends TestCase
             ->deleteJson("/api/v1/households/{$householdB->id}/events/{$eventId}")
             ->assertNotFound();
     }
+
+    public function test_a_weekly_recurring_event_generates_occurrences_on_the_chosen_days(): void
+    {
+        $owner = User::factory()->create();
+        $household = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $this->memberFor($owner, $household, HouseholdRole::Owner);
+
+        $start = now()->next(\Carbon\Carbon::MONDAY)->setTime(9, 0);
+
+        $response = $this->actingAs($owner)->postJson("/api/v1/households/{$household->id}/events", [
+            'title' => 'Practice',
+            'start_at' => $start->toIso8601String(),
+            'end_at' => $start->copy()->addHour()->toIso8601String(),
+            'visibility' => 'household',
+            'recurrence' => [
+                'frequency' => 'weekly',
+                'by_day' => [1, 3], // Mon, Wed
+                'occurrence_count' => 4,
+            ],
+        ]);
+
+        $response->assertCreated()->assertJsonPath('data.is_recurring', true);
+
+        $ruleId = Event::find($response->json('data.id'))->recurring_rule_id;
+        $this->assertNotNull($ruleId);
+
+        $occurrences = Event::where('recurring_rule_id', $ruleId)->orderBy('start_at')->get();
+        $this->assertCount(4, $occurrences);
+        $this->assertEquals([
+            $start->copy()->toIso8601String(),
+            $start->copy()->addDays(2)->toIso8601String(),
+            $start->copy()->addDays(7)->toIso8601String(),
+            $start->copy()->addDays(9)->toIso8601String(),
+        ], $occurrences->map(fn ($e) => $e->start_at->toIso8601String())->all());
+    }
+
+    public function test_a_daily_recurring_event_stops_at_the_end_date(): void
+    {
+        $owner = User::factory()->create();
+        $household = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $this->memberFor($owner, $household, HouseholdRole::Owner);
+
+        $start = now()->addDay()->setTime(9, 0);
+
+        $response = $this->actingAs($owner)->postJson("/api/v1/households/{$household->id}/events", [
+            'title' => 'Daily check-in',
+            'start_at' => $start->toIso8601String(),
+            'end_at' => $start->copy()->addMinutes(15)->toIso8601String(),
+            'visibility' => 'household',
+            'recurrence' => [
+                'frequency' => 'daily',
+                'ends_at' => $start->copy()->addDays(3)->toIso8601String(),
+            ],
+        ]);
+
+        $response->assertCreated();
+        $ruleId = Event::find($response->json('data.id'))->recurring_rule_id;
+
+        $this->assertCount(4, Event::where('recurring_rule_id', $ruleId)->get());
+    }
+
+    public function test_a_monthly_recurring_event_clamps_a_31st_start_to_the_last_day_of_shorter_months(): void
+    {
+        $owner = User::factory()->create();
+        $household = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $this->memberFor($owner, $household, HouseholdRole::Owner);
+
+        $start = \Carbon\Carbon::create(2027, 1, 31, 9, 0);
+
+        $response = $this->actingAs($owner)->postJson("/api/v1/households/{$household->id}/events", [
+            'title' => 'Monthly bill',
+            'start_at' => $start->toIso8601String(),
+            'end_at' => $start->copy()->addMinutes(30)->toIso8601String(),
+            'visibility' => 'household',
+            'recurrence' => [
+                'frequency' => 'monthly',
+                'occurrence_count' => 2,
+            ],
+        ]);
+
+        $response->assertCreated();
+        $ruleId = Event::find($response->json('data.id'))->recurring_rule_id;
+
+        $occurrences = Event::where('recurring_rule_id', $ruleId)->orderBy('start_at')->get();
+        $this->assertCount(2, $occurrences);
+        $this->assertSame('2027-02-28', $occurrences[1]->start_at->toDateString());
+    }
+
+    public function test_recurrence_requires_exactly_one_of_ends_at_or_occurrence_count(): void
+    {
+        $owner = User::factory()->create();
+        $household = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $this->memberFor($owner, $household, HouseholdRole::Owner);
+
+        $start = now()->addHour();
+        $base = [
+            'title' => 'Ambiguous',
+            'start_at' => $start->toIso8601String(),
+            'end_at' => $start->copy()->addHour()->toIso8601String(),
+            'visibility' => 'household',
+        ];
+
+        $this->actingAs($owner)->postJson("/api/v1/households/{$household->id}/events", $base + [
+            'recurrence' => [
+                'frequency' => 'daily',
+                'ends_at' => $start->copy()->addDays(5)->toIso8601String(),
+                'occurrence_count' => 3,
+            ],
+        ])->assertUnprocessable()->assertJsonValidationErrors('recurrence.ends_at');
+
+        $this->actingAs($owner)->postJson("/api/v1/households/{$household->id}/events", $base + [
+            'recurrence' => ['frequency' => 'daily'],
+        ])->assertUnprocessable()->assertJsonValidationErrors('recurrence.ends_at');
+    }
+
+    public function test_a_recurrence_that_would_exceed_the_occurrence_cap_is_rejected(): void
+    {
+        $owner = User::factory()->create();
+        $household = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $this->memberFor($owner, $household, HouseholdRole::Owner);
+
+        $start = now()->addHour();
+
+        $this->actingAs($owner)->postJson("/api/v1/households/{$household->id}/events", [
+            'title' => 'Way too many',
+            'start_at' => $start->toIso8601String(),
+            'end_at' => $start->copy()->addHour()->toIso8601String(),
+            'visibility' => 'household',
+            'recurrence' => [
+                'frequency' => 'daily',
+                'ends_at' => $start->copy()->addDays(300)->toIso8601String(),
+            ],
+        ])->assertUnprocessable()->assertJsonValidationErrors('recurrence.occurrence_count');
+    }
+
+    private function createWeeklySeries(User $owner, Household $household): array
+    {
+        $start = now()->next(\Carbon\Carbon::MONDAY)->setTime(9, 0);
+
+        $response = $this->actingAs($owner)->postJson("/api/v1/households/{$household->id}/events", [
+            'title' => 'Practice',
+            'start_at' => $start->toIso8601String(),
+            'end_at' => $start->copy()->addHour()->toIso8601String(),
+            'visibility' => 'household',
+            'recurrence' => [
+                'frequency' => 'weekly',
+                'by_day' => [1, 3],
+                'occurrence_count' => 4,
+            ],
+        ]);
+
+        $ruleId = Event::find($response->json('data.id'))->recurring_rule_id;
+
+        return Event::where('recurring_rule_id', $ruleId)->orderBy('start_at')->get()->all();
+    }
+
+    public function test_editing_with_this_scope_detaches_only_that_occurrence(): void
+    {
+        $owner = User::factory()->create();
+        $household = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $this->memberFor($owner, $household, HouseholdRole::Owner);
+
+        $occurrences = $this->createWeeklySeries($owner, $household);
+        $target = $occurrences[1];
+
+        $this->actingAs($owner)->putJson("/api/v1/households/{$household->id}/events/{$target->id}", [
+            'title' => 'Rescheduled just this once',
+            'start_at' => $target->start_at->toIso8601String(),
+            'end_at' => $target->end_at->toIso8601String(),
+            'visibility' => 'household',
+            'edit_scope' => 'this',
+        ])->assertOk()->assertJsonPath('data.is_recurring', false);
+
+        $this->assertSame('Rescheduled just this once', $target->fresh()->title);
+        $this->assertNull($target->fresh()->recurring_rule_id);
+
+        foreach ([0, 2, 3] as $i) {
+            $this->assertSame('Practice', $occurrences[$i]->fresh()->title);
+            $this->assertNotNull($occurrences[$i]->fresh()->recurring_rule_id);
+        }
+    }
+
+    public function test_editing_with_following_scope_updates_this_and_future_occurrences_only(): void
+    {
+        $owner = User::factory()->create();
+        $household = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $this->memberFor($owner, $household, HouseholdRole::Owner);
+
+        $occurrences = $this->createWeeklySeries($owner, $household);
+        $target = $occurrences[1];
+
+        $this->actingAs($owner)->putJson("/api/v1/households/{$household->id}/events/{$target->id}", [
+            'title' => 'New location from now on',
+            'start_at' => $target->start_at->toIso8601String(),
+            'end_at' => $target->end_at->toIso8601String(),
+            'visibility' => 'household',
+            'edit_scope' => 'following',
+        ])->assertOk();
+
+        $this->assertSame('Practice', $occurrences[0]->fresh()->title);
+        foreach ([1, 2, 3] as $i) {
+            $fresh = $occurrences[$i]->fresh();
+            $this->assertSame('New location from now on', $fresh->title);
+            $this->assertNotNull($fresh->recurring_rule_id);
+        }
+
+        // Timing is never touched by a "following" edit.
+        foreach ($occurrences as $occurrence) {
+            $this->assertTrue($occurrence->start_at->eq($occurrence->fresh()->start_at));
+        }
+    }
+
+    public function test_deleting_with_following_scope_removes_this_and_future_occurrences(): void
+    {
+        $owner = User::factory()->create();
+        $household = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $this->memberFor($owner, $household, HouseholdRole::Owner);
+
+        $occurrences = $this->createWeeklySeries($owner, $household);
+        $ruleId = $occurrences[0]->recurring_rule_id;
+        $target = $occurrences[1];
+
+        $this->actingAs($owner)
+            ->deleteJson("/api/v1/households/{$household->id}/events/{$target->id}?scope=following")
+            ->assertNoContent();
+
+        $this->assertDatabaseHas('events', ['id' => $occurrences[0]->id]);
+        $this->assertDatabaseMissing('events', ['id' => $occurrences[1]->id]);
+        $this->assertDatabaseMissing('events', ['id' => $occurrences[2]->id]);
+        $this->assertDatabaseMissing('events', ['id' => $occurrences[3]->id]);
+        $this->assertDatabaseHas('recurring_rules', ['id' => $ruleId]);
+    }
+
+    public function test_deleting_the_entire_series_prunes_the_orphaned_recurring_rule(): void
+    {
+        $owner = User::factory()->create();
+        $household = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $this->memberFor($owner, $household, HouseholdRole::Owner);
+
+        $occurrences = $this->createWeeklySeries($owner, $household);
+        $ruleId = $occurrences[0]->recurring_rule_id;
+
+        $this->actingAs($owner)
+            ->deleteJson("/api/v1/households/{$household->id}/events/{$occurrences[0]->id}?scope=following")
+            ->assertNoContent();
+
+        $this->assertDatabaseMissing('recurring_rules', ['id' => $ruleId]);
+    }
 }

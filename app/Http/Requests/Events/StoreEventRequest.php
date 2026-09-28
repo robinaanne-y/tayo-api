@@ -2,6 +2,9 @@
 
 namespace App\Http\Requests\Events;
 
+use App\Exceptions\RecurrenceTooLargeException;
+use App\Support\RecurrenceGenerator;
+use Carbon\Carbon;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -36,6 +39,14 @@ class StoreEventRequest extends FormRequest
             // conditional on visibility.
             'shared_household_ids' => ['array'],
             'shared_household_ids.*' => ['integer'],
+
+            'recurrence' => ['nullable', 'array'],
+            'recurrence.frequency' => ['required_with:recurrence', Rule::in(['daily', 'weekly', 'monthly'])],
+            'recurrence.interval' => ['sometimes', 'integer', 'min:1', 'max:12'],
+            'recurrence.by_day' => ['sometimes', 'array'],
+            'recurrence.by_day.*' => ['integer', 'between:1,7'],
+            'recurrence.ends_at' => ['nullable', 'date', 'after_or_equal:start_at'],
+            'recurrence.occurrence_count' => ['nullable', 'integer', 'min:1', 'max:'.RecurrenceGenerator::MAX_OCCURRENCES],
         ];
     }
 
@@ -72,6 +83,39 @@ class StoreEventRequest extends FormRequest
                     $validator->errors()->add(
                         'shared_household_ids',
                         'One or more households do not belong to you.',
+                    );
+                }
+            }
+
+            $recurrence = $this->input('recurrence');
+
+            if ($recurrence !== null && $validator->errors()->isEmpty()) {
+                $endsAt = $recurrence['ends_at'] ?? null;
+                $occurrenceCount = $recurrence['occurrence_count'] ?? null;
+
+                if (($endsAt === null) === ($occurrenceCount === null)) {
+                    $validator->errors()->add(
+                        'recurrence.ends_at',
+                        'Choose either an end date or a number of occurrences, not both or neither.',
+                    );
+
+                    return;
+                }
+
+                try {
+                    (new RecurrenceGenerator)->generate(
+                        Carbon::parse($this->input('start_at')),
+                        Carbon::parse($this->input('end_at')),
+                        $recurrence['frequency'],
+                        (int) ($recurrence['interval'] ?? 1),
+                        $recurrence['by_day'] ?? null,
+                        $endsAt !== null ? Carbon::parse($endsAt) : null,
+                        $occurrenceCount !== null ? (int) $occurrenceCount : null,
+                    );
+                } catch (RecurrenceTooLargeException) {
+                    $validator->errors()->add(
+                        'recurrence.occurrence_count',
+                        'This recurrence would generate too many events. Shorten the range or reduce the occurrence count.',
                     );
                 }
             }

@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-#[Fillable(['household_id', 'creator_member_id', 'title', 'description', 'location', 'start_at', 'end_at', 'visibility'])]
+#[Fillable(['household_id', 'creator_member_id', 'title', 'description', 'location', 'start_at', 'end_at', 'visibility', 'recurring_rule_id'])]
 class Event extends Model
 {
     /** @use HasFactory<EventFactory> */
@@ -26,6 +26,11 @@ class Event extends Model
     public function household(): BelongsTo
     {
         return $this->belongsTo(Household::class);
+    }
+
+    public function recurringRule(): BelongsTo
+    {
+        return $this->belongsTo(RecurringRule::class);
     }
 
     public function creator(): BelongsTo

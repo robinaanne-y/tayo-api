@@ -8,8 +8,12 @@ use App\Http\Requests\Events\UpdateEventRequest;
 use App\Http\Resources\EventResource;
 use App\Models\Event;
 use App\Models\Household;
+use App\Models\RecurringRule;
+use App\Support\RecurrenceGenerator;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class EventController extends Controller
 {
@@ -53,7 +57,7 @@ class EventController extends Controller
                         );
                 });
             })
-            ->with(['creator', 'participants', 'sharedHouseholds']);
+            ->with(['creator', 'participants', 'sharedHouseholds', 'recurringRule']);
 
         if ($request->filled('from')) {
             $query->where('end_at', '>=', $request->date('from'));
@@ -72,26 +76,68 @@ class EventController extends Controller
 
     public function store(StoreEventRequest $request, Household $household): JsonResponse
     {
-        $event = $household->events()->create([
-            'creator_member_id' => $request->user()->member->id,
-            'title' => $request->validated('title'),
-            'description' => $request->validated('description'),
-            'location' => $request->validated('location'),
-            'start_at' => $request->validated('start_at'),
-            'end_at' => $request->validated('end_at'),
-            'visibility' => $request->validated('visibility'),
-        ]);
+        $recurrence = $request->validated('recurrence');
 
-        $event->participants()->sync($request->validated('participant_member_ids') ?? []);
-        $event->sharedHouseholds()->sync(
-            $request->validated('visibility') === 'selected_households'
+        $firstEvent = DB::transaction(function () use ($request, $household, $recurrence) {
+            $recurringRuleId = null;
+            $occurrences = [[
+                'start_at' => Carbon::parse($request->validated('start_at')),
+                'end_at' => Carbon::parse($request->validated('end_at')),
+            ]];
+
+            if ($recurrence !== null) {
+                $rule = RecurringRule::create([
+                    'frequency' => $recurrence['frequency'],
+                    'interval' => $recurrence['interval'] ?? 1,
+                    'by_day' => $recurrence['by_day'] ?? null,
+                    'ends_at' => $recurrence['ends_at'] ?? null,
+                    'occurrence_count' => $recurrence['occurrence_count'] ?? null,
+                ]);
+                $recurringRuleId = $rule->id;
+
+                $occurrences = (new RecurrenceGenerator)->generate(
+                    $occurrences[0]['start_at'],
+                    $occurrences[0]['end_at'],
+                    $rule->frequency,
+                    $rule->interval,
+                    $rule->by_day,
+                    $rule->ends_at,
+                    $rule->occurrence_count,
+                );
+            }
+
+            $participantIds = $request->validated('participant_member_ids') ?? [];
+            $sharedHouseholdIds = $request->validated('visibility') === 'selected_households'
                 ? $request->validated('shared_household_ids')
-                : [],
-        );
-        $event->load(['creator', 'participants', 'sharedHouseholds']);
+                : [];
+
+            $firstEvent = null;
+
+            foreach ($occurrences as $occurrence) {
+                $event = $household->events()->create([
+                    'creator_member_id' => $request->user()->member->id,
+                    'title' => $request->validated('title'),
+                    'description' => $request->validated('description'),
+                    'location' => $request->validated('location'),
+                    'start_at' => $occurrence['start_at'],
+                    'end_at' => $occurrence['end_at'],
+                    'visibility' => $request->validated('visibility'),
+                    'recurring_rule_id' => $recurringRuleId,
+                ]);
+
+                $event->participants()->sync($participantIds);
+                $event->sharedHouseholds()->sync($sharedHouseholdIds);
+
+                $firstEvent ??= $event;
+            }
+
+            return $firstEvent;
+        });
+
+        $firstEvent->load(['creator', 'participants', 'sharedHouseholds', 'recurringRule']);
 
         return response()->json([
-            'data' => EventResource::make($event),
+            'data' => EventResource::make($firstEvent),
         ], 201);
     }
 
@@ -106,22 +152,46 @@ class EventController extends Controller
     {
         $event = $this->eventFor($household, $event);
 
-        $event->update([
-            'title' => $request->validated('title'),
-            'description' => $request->validated('description'),
-            'location' => $request->validated('location'),
-            'start_at' => $request->validated('start_at'),
-            'end_at' => $request->validated('end_at'),
-            'visibility' => $request->validated('visibility'),
-        ]);
+        $editScope = $request->validated('edit_scope', 'this');
+        $participantIds = $request->validated('participant_member_ids') ?? [];
+        $sharedHouseholdIds = $request->validated('visibility') === 'selected_households'
+            ? $request->validated('shared_household_ids')
+            : [];
 
-        $event->participants()->sync($request->validated('participant_member_ids') ?? []);
-        $event->sharedHouseholds()->sync(
-            $request->validated('visibility') === 'selected_households'
-                ? $request->validated('shared_household_ids')
-                : [],
-        );
-        $event->load(['creator', 'participants', 'sharedHouseholds']);
+        if ($editScope === 'following' && $event->recurring_rule_id !== null) {
+            $affected = Event::where('recurring_rule_id', $event->recurring_rule_id)
+                ->where('start_at', '>=', $event->start_at)
+                ->get();
+
+            foreach ($affected as $occurrence) {
+                $occurrence->update([
+                    'title' => $request->validated('title'),
+                    'description' => $request->validated('description'),
+                    'location' => $request->validated('location'),
+                    'visibility' => $request->validated('visibility'),
+                ]);
+                $occurrence->participants()->sync($participantIds);
+                $occurrence->sharedHouseholds()->sync($sharedHouseholdIds);
+            }
+        } else {
+            $previousRuleId = $event->recurring_rule_id;
+
+            $event->update([
+                'title' => $request->validated('title'),
+                'description' => $request->validated('description'),
+                'location' => $request->validated('location'),
+                'start_at' => $request->validated('start_at'),
+                'end_at' => $request->validated('end_at'),
+                'visibility' => $request->validated('visibility'),
+                'recurring_rule_id' => null,
+            ]);
+            $event->participants()->sync($participantIds);
+            $event->sharedHouseholds()->sync($sharedHouseholdIds);
+
+            $this->pruneOrphanedRule($previousRuleId);
+        }
+
+        $event->load(['creator', 'participants', 'sharedHouseholds', 'recurringRule']);
 
         return response()->json([
             'data' => EventResource::make($event),
@@ -134,8 +204,32 @@ class EventController extends Controller
 
         $this->authorize('deleteEvent', [$household, $event]);
 
-        $event->delete();
+        $scope = $request->query('scope', 'this');
+        abort_unless(in_array($scope, ['this', 'following'], true), 422, 'Invalid scope.');
+
+        $recurringRuleId = $event->recurring_rule_id;
+
+        if ($scope === 'following' && $recurringRuleId !== null) {
+            Event::where('recurring_rule_id', $recurringRuleId)
+                ->where('start_at', '>=', $event->start_at)
+                ->delete();
+        } else {
+            $event->delete();
+        }
+
+        $this->pruneOrphanedRule($recurringRuleId);
 
         return response()->json(null, 204);
+    }
+
+    private function pruneOrphanedRule(?int $recurringRuleId): void
+    {
+        if ($recurringRuleId === null) {
+            return;
+        }
+
+        if (! Event::where('recurring_rule_id', $recurringRuleId)->exists()) {
+            RecurringRule::destroy($recurringRuleId);
+        }
     }
 }
