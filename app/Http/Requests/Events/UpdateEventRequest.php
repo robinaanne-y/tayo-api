@@ -27,7 +27,14 @@ class UpdateEventRequest extends FormRequest
             ],
             'participant_member_ids' => ['sometimes', 'array'],
             'participant_member_ids.*' => ['integer'],
-            'shared_household_ids' => ['required_if:visibility,selected_households', 'array', 'min:1'],
+            // Deliberately just 'array' here, not 'required_if'/'min:1' —
+            // those run whenever the field is *present*, regardless of
+            // their own condition, and the mobile client always sends this
+            // key (as [] when unused). The "must be non-empty when
+            // visibility is selected_households" check lives in
+            // withValidator() below instead, where it can actually be
+            // conditional on visibility.
+            'shared_household_ids' => ['array'],
             'shared_household_ids.*' => ['integer'],
         ];
     }
@@ -49,6 +56,14 @@ class UpdateEventRequest extends FormRequest
             }
 
             $sharedHouseholdIds = $this->input('shared_household_ids', []);
+
+            if ($this->input('visibility') === 'selected_households' && empty($sharedHouseholdIds)) {
+                $validator->errors()->add(
+                    'shared_household_ids',
+                    'Select at least one household to share with.',
+                );
+            }
+
             if (!empty($sharedHouseholdIds)) {
                 $myHouseholdIds = $this->user()->member->households()->pluck('households.id')->all();
                 $invalidHouseholdIds = array_diff($sharedHouseholdIds, $myHouseholdIds);

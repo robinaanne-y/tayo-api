@@ -499,6 +499,30 @@ class EventTest extends TestCase
             ->assertJsonValidationErrors('shared_household_ids');
     }
 
+    /**
+     * Regression test: the mobile client always sends shared_household_ids
+     * as an explicit [] when it isn't used (not omitted), unlike these
+     * tests' other requests. An earlier version of the validation rules
+     * used 'min:1' directly on the field, which runs whenever the field is
+     * *present* regardless of any 'required_if' condition — rejecting
+     * every single save, since [] is always present. This must succeed.
+     */
+    public function test_an_empty_shared_household_ids_array_is_accepted_for_non_selected_households_visibility(): void
+    {
+        $owner = User::factory()->create();
+        $household = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $this->memberFor($owner, $household, HouseholdRole::Owner);
+
+        $this->actingAs($owner)->postJson("/api/v1/households/{$household->id}/events", [
+            'title' => 'Ordinary Event',
+            'start_at' => now()->addHour()->toIso8601String(),
+            'end_at' => now()->addHours(2)->toIso8601String(),
+            'visibility' => 'household',
+            'participant_member_ids' => [],
+            'shared_household_ids' => [],
+        ])->assertCreated();
+    }
+
     public function test_a_household_the_creator_does_not_belong_to_cannot_be_selected_as_shared(): void
     {
         $owner = User::factory()->create();
