@@ -37,4 +37,13 @@ class Event extends Model
     {
         return $this->belongsToMany(Member::class, 'event_participants')->withTimestamps();
     }
+
+    /**
+     * Additional households a `selected_households` event is shared into,
+     * beyond its own home `household_id`.
+     */
+    public function sharedHouseholds(): BelongsToMany
+    {
+        return $this->belongsToMany(Household::class, 'event_households')->withTimestamps();
+    }
 }

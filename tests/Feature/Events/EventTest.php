@@ -400,4 +400,144 @@ class EventTest extends TestCase
 
         $updateResponse->assertOk()->assertJsonPath('data.location', "Uncle Bob's Place");
     }
+
+    public function test_a_selected_households_event_is_visible_in_its_home_and_shared_households_but_not_others(): void
+    {
+        $owner = User::factory()->create();
+        $householdA = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $member = $this->memberFor($owner, $householdA, HouseholdRole::Owner);
+
+        $householdB = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $householdB->memberships()->create(['member_id' => $member->id, 'role' => HouseholdRole::Owner]);
+
+        $householdD = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $householdD->memberships()->create(['member_id' => $member->id, 'role' => HouseholdRole::Owner]);
+
+        $response = $this->actingAs($owner)->postJson("/api/v1/households/{$householdA->id}/events", [
+            'title' => 'Shared Event',
+            'start_at' => now()->addHour()->toIso8601String(),
+            'end_at' => now()->addHours(2)->toIso8601String(),
+            'visibility' => 'selected_households',
+            'shared_household_ids' => [$householdB->id],
+        ]);
+
+        $response->assertCreated();
+        $participantIds = collect($response->json('data.shared_households'))->pluck('id')->all();
+        $this->assertEqualsCanonicalizing([$householdB->id], $participantIds);
+
+        $this->actingAs($owner)->getJson("/api/v1/households/{$householdA->id}/events")
+            ->assertOk()->assertJsonCount(1, 'data');
+
+        $this->actingAs($owner)->getJson("/api/v1/households/{$householdB->id}/events")
+            ->assertOk()->assertJsonCount(1, 'data');
+
+        $this->actingAs($owner)->getJson("/api/v1/households/{$householdD->id}/events")
+            ->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    public function test_another_member_of_a_shared_household_can_see_the_event_too(): void
+    {
+        $owner = User::factory()->create();
+        $householdA = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $member = $this->memberFor($owner, $householdA, HouseholdRole::Owner);
+
+        $householdB = Household::factory()->create();
+        $householdB->memberships()->create(['member_id' => $member->id, 'role' => HouseholdRole::Adult]);
+
+        $bUser = User::factory()->create();
+        $this->memberFor($bUser, $householdB, HouseholdRole::Owner);
+
+        $this->actingAs($owner)->postJson("/api/v1/households/{$householdA->id}/events", [
+            'title' => 'Shared Event',
+            'start_at' => now()->addHour()->toIso8601String(),
+            'end_at' => now()->addHours(2)->toIso8601String(),
+            'visibility' => 'selected_households',
+            'shared_household_ids' => [$householdB->id],
+        ])->assertCreated();
+
+        $this->actingAs($bUser)->getJson("/api/v1/households/{$householdB->id}/events")
+            ->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.title', 'Shared Event');
+    }
+
+    public function test_an_all_member_households_event_is_visible_in_every_household_the_creator_belongs_to(): void
+    {
+        $owner = User::factory()->create();
+        $householdA = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $member = $this->memberFor($owner, $householdA, HouseholdRole::Owner);
+
+        $householdB = Household::factory()->create();
+        $householdB->memberships()->create(['member_id' => $member->id, 'role' => HouseholdRole::Adult]);
+
+        $this->actingAs($owner)->postJson("/api/v1/households/{$householdA->id}/events", [
+            'title' => 'Everywhere Event',
+            'start_at' => now()->addHour()->toIso8601String(),
+            'end_at' => now()->addHours(2)->toIso8601String(),
+            'visibility' => 'all_member_households',
+        ])->assertCreated();
+
+        $this->actingAs($owner)->getJson("/api/v1/households/{$householdA->id}/events")
+            ->assertOk()->assertJsonCount(1, 'data');
+
+        $this->actingAs($owner)->getJson("/api/v1/households/{$householdB->id}/events")
+            ->assertOk()->assertJsonCount(1, 'data');
+    }
+
+    public function test_shared_household_ids_is_required_for_selected_households_visibility(): void
+    {
+        $owner = User::factory()->create();
+        $household = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $this->memberFor($owner, $household, HouseholdRole::Owner);
+
+        $this->actingAs($owner)->postJson("/api/v1/households/{$household->id}/events", [
+            'title' => 'Shared Event',
+            'start_at' => now()->addHour()->toIso8601String(),
+            'end_at' => now()->addHours(2)->toIso8601String(),
+            'visibility' => 'selected_households',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('shared_household_ids');
+    }
+
+    public function test_a_household_the_creator_does_not_belong_to_cannot_be_selected_as_shared(): void
+    {
+        $owner = User::factory()->create();
+        $household = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $this->memberFor($owner, $household, HouseholdRole::Owner);
+
+        $outsiderHousehold = Household::factory()->create();
+
+        $this->actingAs($owner)->postJson("/api/v1/households/{$household->id}/events", [
+            'title' => 'Shared Event',
+            'start_at' => now()->addHour()->toIso8601String(),
+            'end_at' => now()->addHours(2)->toIso8601String(),
+            'visibility' => 'selected_households',
+            'shared_household_ids' => [$outsiderHousehold->id],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('shared_household_ids');
+    }
+
+    public function test_an_event_cannot_be_edited_through_a_household_it_was_only_shared_into(): void
+    {
+        $owner = User::factory()->create();
+        $householdA = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $member = $this->memberFor($owner, $householdA, HouseholdRole::Owner);
+
+        $householdB = Household::factory()->create();
+        $householdB->memberships()->create(['member_id' => $member->id, 'role' => HouseholdRole::Owner]);
+
+        $response = $this->actingAs($owner)->postJson("/api/v1/households/{$householdA->id}/events", [
+            'title' => 'Shared Event',
+            'start_at' => now()->addHour()->toIso8601String(),
+            'end_at' => now()->addHours(2)->toIso8601String(),
+            'visibility' => 'selected_households',
+            'shared_household_ids' => [$householdB->id],
+        ]);
+        $eventId = $response->json('data.id');
+
+        $this->actingAs($owner)
+            ->deleteJson("/api/v1/households/{$householdB->id}/events/{$eventId}")
+            ->assertNotFound();
+    }
 }

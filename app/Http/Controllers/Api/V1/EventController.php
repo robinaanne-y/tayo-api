@@ -19,12 +19,41 @@ class EventController extends Controller
 
         $memberId = $request->user()->member->id;
 
-        $query = $household->events()
-            ->where(function ($q) use ($memberId) {
-                $q->where('visibility', 'household')
-                    ->orWhere('creator_member_id', $memberId);
+        // Three ways an event can belong in this household's calendar: it
+        // was created here (subject to its own visibility), it was shared
+        // in explicitly (selected_households), or its creator belongs to
+        // this household too and shared it with everywhere they are
+        // (all_member_households).
+        $query = Event::query()
+            ->where(function ($q) use ($household, $memberId) {
+                $q->where(function ($native) use ($household, $memberId) {
+                    $native->where('household_id', $household->id)
+                        ->where(function ($visible) use ($memberId) {
+                            $visible->whereIn('visibility', [
+                                'household',
+                                'selected_households',
+                                'all_member_households',
+                            ])->orWhere('creator_member_id', $memberId);
+                        });
+                })
+                ->orWhere(function ($shared) use ($household) {
+                    $shared->where('visibility', 'selected_households')
+                        ->where('household_id', '!=', $household->id)
+                        ->whereHas(
+                            'sharedHouseholds',
+                            fn ($q) => $q->where('households.id', $household->id),
+                        );
+                })
+                ->orWhere(function ($sharedWithAll) use ($household) {
+                    $sharedWithAll->where('visibility', 'all_member_households')
+                        ->where('household_id', '!=', $household->id)
+                        ->whereHas(
+                            'creator.households',
+                            fn ($q) => $q->where('households.id', $household->id),
+                        );
+                });
             })
-            ->with(['creator', 'participants']);
+            ->with(['creator', 'participants', 'sharedHouseholds']);
 
         if ($request->filled('from')) {
             $query->where('end_at', '>=', $request->date('from'));
@@ -54,7 +83,12 @@ class EventController extends Controller
         ]);
 
         $event->participants()->sync($request->validated('participant_member_ids') ?? []);
-        $event->load(['creator', 'participants']);
+        $event->sharedHouseholds()->sync(
+            $request->validated('visibility') === 'selected_households'
+                ? $request->validated('shared_household_ids')
+                : [],
+        );
+        $event->load(['creator', 'participants', 'sharedHouseholds']);
 
         return response()->json([
             'data' => EventResource::make($event),
@@ -82,7 +116,12 @@ class EventController extends Controller
         ]);
 
         $event->participants()->sync($request->validated('participant_member_ids') ?? []);
-        $event->load(['creator', 'participants']);
+        $event->sharedHouseholds()->sync(
+            $request->validated('visibility') === 'selected_households'
+                ? $request->validated('shared_household_ids')
+                : [],
+        );
+        $event->load(['creator', 'participants', 'sharedHouseholds']);
 
         return response()->json([
             'data' => EventResource::make($event),

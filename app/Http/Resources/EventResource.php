@@ -21,6 +21,7 @@ class EventResource extends JsonResource
             'end_at' => $this->end_at,
             'visibility' => $this->visibility,
             'participants' => MemberResource::collection($this->whenLoaded('participants')),
+            'shared_households' => HouseholdResource::collection($this->whenLoaded('sharedHouseholds')),
             'created_at' => $this->created_at,
         ];
     }
