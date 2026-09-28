@@ -53,4 +53,9 @@ class Household extends Model
     {
         return $this->hasMany(Event::class);
     }
+
+    public function requests(): HasMany
+    {
+        return $this->hasMany(PermissionRequest::class);
+    }
 }
