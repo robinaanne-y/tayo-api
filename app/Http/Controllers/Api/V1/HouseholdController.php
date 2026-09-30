@@ -20,7 +20,7 @@ class HouseholdController extends Controller
         $member = $request->user()->member;
 
         $households = $member
-            ? $member->households()->withCount('members')->get()
+            ? $member->households()->get()
             : collect();
 
         return response()->json([
@@ -35,8 +35,6 @@ class HouseholdController extends Controller
         $household = DB::transaction(function () use ($request, $user) {
             $household = Household::create([
                 'name' => $request->validated('name'),
-                'color' => $request->validated('color'),
-                'emoji' => $request->validated('emoji'),
                 'created_by_user_id' => $user->id,
             ]);
 

@@ -15,8 +15,6 @@ class UpdateHouseholdRequest extends FormRequest
     {
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'color' => ['sometimes', 'nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-            'emoji' => ['sometimes', 'nullable', 'string', 'max:16'],
         ];
     }
 }

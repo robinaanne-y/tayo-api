@@ -1,14 +1,8 @@
 <?php
 
-use App\Http\Controllers\Api\V1\ActivationController;
-use App\Http\Controllers\Api\V1\AnnouncementController;
 use App\Http\Controllers\Api\V1\Auth\AuthController;
-use App\Http\Controllers\Api\V1\EventController;
-use App\Http\Controllers\Api\V1\FamilyNoteController;
 use App\Http\Controllers\Api\V1\HouseholdController;
-use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\MemberController;
-use App\Http\Controllers\Api\V1\PermissionRequestController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -19,14 +13,8 @@ Route::prefix('v1')->group(function () {
         Route::middleware('auth:sanctum')->group(function () {
             Route::post('logout', [AuthController::class, 'logout']);
             Route::get('me', [AuthController::class, 'me']);
-            Route::patch('me', [AuthController::class, 'updateProfile']);
         });
     });
-
-    // Public — reached by someone who may not have an account yet.
-    Route::get('invitations/{token}', [InvitationController::class, 'show']);
-    Route::get('activation/{token}', [ActivationController::class, 'show']);
-    Route::post('activation/{token}/claim', [ActivationController::class, 'claim']);
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('households', HouseholdController::class)
@@ -34,65 +22,5 @@ Route::prefix('v1')->group(function () {
 
         Route::get('households/{household}/members', [MemberController::class, 'index']);
         Route::post('households/{household}/members', [MemberController::class, 'store']);
-        Route::patch('households/{household}/members/{member}', [MemberController::class, 'update']);
-        Route::post(
-            'households/{household}/members/{member}/avatar',
-            [MemberController::class, 'updateAvatar'],
-        );
-
-        Route::post('households/{household}/invitations', [InvitationController::class, 'store']);
-        Route::post('invitations/{token}/accept', [InvitationController::class, 'accept']);
-
-        Route::post(
-            'households/{household}/members/{member}/activation-link',
-            [ActivationController::class, 'store'],
-        );
-
-        Route::get('households/{household}/notes', [FamilyNoteController::class, 'index']);
-        Route::post('households/{household}/notes', [FamilyNoteController::class, 'store']);
-        Route::delete('households/{household}/notes/{note}', [FamilyNoteController::class, 'destroy']);
-
-        Route::get('households/{household}/announcements', [AnnouncementController::class, 'index']);
-        Route::post('households/{household}/announcements', [AnnouncementController::class, 'store']);
-        Route::delete(
-            'households/{household}/announcements/{announcement}',
-            [AnnouncementController::class, 'destroy'],
-        );
-
-        Route::get('households/{household}/events', [EventController::class, 'index']);
-        Route::post('households/{household}/events', [EventController::class, 'store']);
-        Route::put('households/{household}/events/{event}', [EventController::class, 'update']);
-        Route::delete('households/{household}/events/{event}', [EventController::class, 'destroy']);
-
-        Route::get('households/{household}/requests', [PermissionRequestController::class, 'index']);
-        Route::post('households/{household}/requests', [PermissionRequestController::class, 'store']);
-        Route::get(
-            'households/{household}/requests/{permissionRequest}',
-            [PermissionRequestController::class, 'show'],
-        );
-        Route::put(
-            'households/{household}/requests/{permissionRequest}',
-            [PermissionRequestController::class, 'update'],
-        );
-        Route::post(
-            'households/{household}/requests/{permissionRequest}/approve',
-            [PermissionRequestController::class, 'approve'],
-        );
-        Route::post(
-            'households/{household}/requests/{permissionRequest}/decline',
-            [PermissionRequestController::class, 'decline'],
-        );
-        Route::post(
-            'households/{household}/requests/{permissionRequest}/cancel',
-            [PermissionRequestController::class, 'cancel'],
-        );
-        Route::post(
-            'households/{household}/requests/{permissionRequest}/conditions',
-            [PermissionRequestController::class, 'addCondition'],
-        );
-        Route::post(
-            'households/{household}/requests/{permissionRequest}/acknowledge',
-            [PermissionRequestController::class, 'acknowledge'],
-        );
     });
 });

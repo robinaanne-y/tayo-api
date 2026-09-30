@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'color', 'emoji', 'created_by_user_id'])]
+#[Fillable(['name', 'created_by_user_id'])]
 class Household extends Model
 {
     /** @use HasFactory<HouseholdFactory> */
@@ -32,30 +32,5 @@ class Household extends Model
             ->using(HouseholdMembership::class)
             ->withPivot(['role', 'status', 'joined_at'])
             ->withTimestamps();
-    }
-
-    public function invitations(): HasMany
-    {
-        return $this->hasMany(HouseholdInvitation::class);
-    }
-
-    public function familyNotes(): HasMany
-    {
-        return $this->hasMany(FamilyNote::class);
-    }
-
-    public function announcements(): HasMany
-    {
-        return $this->hasMany(Announcement::class);
-    }
-
-    public function events(): HasMany
-    {
-        return $this->hasMany(Event::class);
-    }
-
-    public function requests(): HasMany
-    {
-        return $this->hasMany(PermissionRequest::class);
     }
 }

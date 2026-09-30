@@ -16,11 +16,6 @@ class StoreHouseholdRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            // Cosmetic only — a hex color and an emoji chosen from a fixed
-            // client-side palette, not validated against a specific set so
-            // the palette can change without a backend deploy.
-            'color' => ['sometimes', 'nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-            'emoji' => ['sometimes', 'nullable', 'string', 'max:16'],
         ];
     }
 }
