@@ -7,6 +7,7 @@ use App\Models\Announcement;
 use App\Models\Event;
 use App\Models\FamilyNote;
 use App\Models\Household;
+use App\Models\PermissionRequest;
 use App\Models\User;
 
 class HouseholdPolicy
@@ -146,5 +147,96 @@ class HouseholdPolicy
         // rights — only the home household's.
         return in_array($event->visibility, ['household', 'selected_households', 'all_member_households'], true)
             && ($membership->role?->canManageHousehold() ?? false);
+    }
+
+    /**
+     * Any member can submit a request — including a minor or an adult
+     * asking a co-parent for sign-off.
+     */
+    public function addRequest(User $user, Household $household): bool
+    {
+        return $user->membershipFor($household) !== null;
+    }
+
+    /**
+     * Every household request is visible to every household member —
+     * unlike events, requests have no per-item visibility levels.
+     */
+    public function viewRequest(User $user, Household $household): bool
+    {
+        return $user->membershipFor($household) !== null;
+    }
+
+    /**
+     * Only the requester can edit their own request, and only while it's
+     * still pending — once an adult has responded, the content is locked.
+     */
+    public function updateRequest(User $user, Household $household, PermissionRequest $permissionRequest): bool
+    {
+        $membership = $user->membershipFor($household);
+
+        if ($membership === null) {
+            return false;
+        }
+
+        return $permissionRequest->requester_member_id === $membership->member_id && $permissionRequest->isPending();
+    }
+
+    /**
+     * Only the requester can clear their own "needs attention" notification
+     * for a request that's been approved/declined.
+     */
+    public function acknowledgeRequest(User $user, Household $household, PermissionRequest $permissionRequest): bool
+    {
+        $membership = $user->membershipFor($household);
+
+        return $membership !== null && $permissionRequest->requester_member_id === $membership->member_id;
+    }
+
+    /**
+     * Only the requester can withdraw their own request, and only while
+     * it's still pending.
+     */
+    public function cancelRequest(User $user, Household $household, PermissionRequest $permissionRequest): bool
+    {
+        return $this->updateRequest($user, $household, $permissionRequest);
+    }
+
+    /**
+     * Approving or declining is an Owner/Adult action, only while the
+     * request is still pending (prevents re-approving/re-declining, which
+     * would also let a "create_event" approval promote a second, duplicate
+     * event) — and never on one's own request, since that would let
+     * someone approve their own ask (e.g. an adult filing a request meant
+     * for a co-parent's sign-off).
+     */
+    public function actOnRequest(User $user, Household $household, PermissionRequest $permissionRequest): bool
+    {
+        $membership = $user->membershipFor($household);
+
+        if ($membership === null) {
+            return false;
+        }
+
+        return ($membership->role?->canManageHousehold() ?? false)
+            && $permissionRequest->requester_member_id !== $membership->member_id
+            && $permissionRequest->isPending();
+    }
+
+    /**
+     * Adding a condition is an Owner/Adult action, at any point in a
+     * request's life (a minor administrative note, not worth restricting
+     * by status) — but still never on one's own request.
+     */
+    public function addRequestCondition(User $user, Household $household, PermissionRequest $permissionRequest): bool
+    {
+        $membership = $user->membershipFor($household);
+
+        if ($membership === null) {
+            return false;
+        }
+
+        return ($membership->role?->canManageHousehold() ?? false)
+            && $permissionRequest->requester_member_id !== $membership->member_id;
     }
 }

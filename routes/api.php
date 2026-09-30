@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\FamilyNoteController;
 use App\Http\Controllers\Api\V1\HouseholdController;
 use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\MemberController;
+use App\Http\Controllers\Api\V1\PermissionRequestController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -62,5 +63,36 @@ Route::prefix('v1')->group(function () {
         Route::post('households/{household}/events', [EventController::class, 'store']);
         Route::put('households/{household}/events/{event}', [EventController::class, 'update']);
         Route::delete('households/{household}/events/{event}', [EventController::class, 'destroy']);
+
+        Route::get('households/{household}/requests', [PermissionRequestController::class, 'index']);
+        Route::post('households/{household}/requests', [PermissionRequestController::class, 'store']);
+        Route::get(
+            'households/{household}/requests/{permissionRequest}',
+            [PermissionRequestController::class, 'show'],
+        );
+        Route::put(
+            'households/{household}/requests/{permissionRequest}',
+            [PermissionRequestController::class, 'update'],
+        );
+        Route::post(
+            'households/{household}/requests/{permissionRequest}/approve',
+            [PermissionRequestController::class, 'approve'],
+        );
+        Route::post(
+            'households/{household}/requests/{permissionRequest}/decline',
+            [PermissionRequestController::class, 'decline'],
+        );
+        Route::post(
+            'households/{household}/requests/{permissionRequest}/cancel',
+            [PermissionRequestController::class, 'cancel'],
+        );
+        Route::post(
+            'households/{household}/requests/{permissionRequest}/conditions',
+            [PermissionRequestController::class, 'addCondition'],
+        );
+        Route::post(
+            'households/{household}/requests/{permissionRequest}/acknowledge',
+            [PermissionRequestController::class, 'acknowledge'],
+        );
     });
 });

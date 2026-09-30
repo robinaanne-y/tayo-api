@@ -232,26 +232,41 @@ right subset of events in each.
 
 ---
 
-## Phase 4 — Family Requests
+## Phase 4 — Family Requests — ✅ Done
 
-- `requests` table (requester_member_id, household_id, type, status,
-  target_date, title, description) with status enum `pending`,
-  `approved`, `declined`, `cancelled`, `expired`.
+- `permission_requests` table (`requester_member_id`, `household_id`,
+  `type`, `status`, `requested_start_at`/`requested_end_at`, `title`,
+  `description`, `responded_by_member_id`, `responded_at`,
+  `response_note`, `promoted_event_id`) with status enum `pending`,
+  `approved`, `declined`, `cancelled`, `expired`. Named `PermissionRequest`/
+  `permission_requests` rather than the literal `Request`/`requests` —
+  `Request` collides with `Illuminate\Http\Request`. `target_date` became
+  a `requested_start_at`/`requested_end_at` pair instead of a single date,
+  since the roadmap's own example ("Saturday 3:00–6:00 PM") is a time
+  range and "promote to event" needs a start/end to copy.
 - `request_conditions` table for adult-added conditions.
-- Endpoints: create (minor), list, approve/decline/add-condition (adult
-  only — policy-enforced), optional "promote to calendar event" action
-  that creates an `events` row from an approved request.
-- `meal_requests` — see Phase 5, but the approval/notification mechanics
-  are shared with permission requests; consider a shared
-  `Approvable`/status trait rather than duplicating logic.
-- Notification hook: approving/declining/creating a request should be a
-  clear extension point for Phase 9, even before push notifications exist
-  (e.g. dispatch a job/event now that Phase 9 later listens to).
+- `App\Models\Concerns\Approvable` trait (status transitions + scopes),
+  shared by `PermissionRequest` now and `MealRequest` in Phase 5 — built
+  now per this section's own suggestion, not speculatively.
+- Endpoints: create/list/show/update (any member can create; the
+  requester can edit/cancel only while pending), approve/decline/
+  add-condition (adult only, policy-enforced, never on one's own
+  request), and an "approve with `create_event: true`" option that
+  atomically creates an `events` row from the request's time window
+  (422 if the request has none) and records it on `promoted_event_id`.
+- No per-request visibility levels — every household member can see
+  every request, unlike Events' 4-level visibility.
+- `expired` stays in the enum for schema completeness; nothing
+  auto-transitions into it yet (genuinely Phase 9/Scheduler territory).
+- `meal_requests` — deferred to Phase 5, reusing `Approvable`.
+- Notification hook: `App\Events\PermissionRequestCreated`/`Approved`/
+  `Declined` are dispatched with no listeners yet — the extension point
+  Phase 9 will consume.
 
 ### Milestone
 
 Adults can approve or decline a minor's request entirely through the API,
-with conditions and an optional calendar event created atomically.
+with conditions and an optional calendar event created atomically. Met.
 
 ---
 
@@ -380,7 +395,7 @@ RevenueCat as the source of truth for payment state only.
 | 1 | Accounts + Households + Members | household_invitations, member_activation_tokens | Phase 0 — ✅ Done |
 | 2 | Home + Family Feed | family_notes, announcements | Phase 1 |
 | 3 | Calendar + Scheduling | events, event_participants, event_households, recurring_rules | Phase 1 |
-| 4 | Family Requests | requests, request_conditions | Phase 1, 3 (for promote-to-event) |
+| 4 | Family Requests | permission_requests, request_conditions | Phase 1, 3 (for promote-to-event) — ✅ Done |
 | 5 | Meals + Groceries | meal_plans, meal_plan_items, meal_requests, grocery_lists, grocery_items | Phase 4 (approval flow) — **MVP line** |
 | 6 | Tasks + Chores | tasks, task_assignments, task_recurrences, task_completions | Phase 1 |
 | 7 | Trips + Events | trips, trip_participants, trip_itinerary_items, trip_checklists, trip_checklist_items | Phase 3, 5 |

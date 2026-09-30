@@ -173,6 +173,51 @@ Household roles are represented by the `HouseholdRole` enum: `owner`, `adult`,
 > touched by `following`). There's no third "all events" option — calling
 > `following` on a series' first occurrence already covers that case.
 
+> **Foundation note — Family Requests (Phase 4):**
+>
+> `permission_requests` (not `requests` — that name collides with
+> `Illuminate\Http\Request`) plus `request_conditions`. Status transitions
+> (`approve`/`decline`/`cancel`, `isPending()`/etc.) live in
+> `App\Models\Concerns\Approvable`, a trait rather than a base class since
+> `PermissionRequest` extends `Model` like everything else — built now,
+> ahead of Phase 5's `MealRequest`, because the roadmap explicitly calls
+> for sharing it rather than duplicating the status machinery twice.
+>
+> **Authorization** follows the same shared-`HouseholdPolicy` pattern as
+> Events (`addRequest`/`viewRequest`/`updateRequest`/`cancelRequest`/
+> `actOnRequest`/`addRequestCondition`) rather than a dedicated policy
+> class. Two rules worth noting: `actOnRequest` (approve/decline) and
+> `addRequestCondition` both require the actor's role to
+> `canManageHousehold()` **and** that they aren't the request's own
+> requester — an Owner/Adult can't approve or decline their own request,
+> which matters because any member (not just minors) can submit one (e.g.
+> an adult asking a co-parent to sign off on something). `actOnRequest`
+> additionally requires the request still be `pending`, closing off
+> re-approving/re-declining an already-resolved request, which would
+> otherwise let a `create_event` approval silently create a second,
+> duplicate event.
+>
+> **Promote to event**: `PermissionRequestController::approve()` accepts
+> `create_event: bool`; when true it requires the request to have both
+> `requested_start_at`/`requested_end_at` set (422 otherwise) and creates
+> an `Event` from the request's title/description/time window with
+> `visibility: 'household'` and `creator_member_id` set to the
+> *requester's* member id (not the approving adult's), so the event reads
+> as theirs — mirroring how a family calendar entry for "my birthday
+> party" should show the kid, not the parent who said yes. The created
+> event's id is stored on `promoted_event_id` to prevent double-promotion
+> and let the mobile client link back to it.
+>
+> **Notification hook**: `App\Events\PermissionRequestCreated`/`Approved`/
+> `Declined` are dispatched with no listeners registered — a deliberate
+> extension point for Phase 9 (Realtime, Notifications & Automation),
+> which is where actual push/broadcast delivery belongs, not here.
+>
+> No per-request visibility levels exist (unlike Events' 4 levels) —
+> every household member can see every request in that household. Adding
+> a parallel visibility system for requests wasn't judged worth it for a
+> first pass.
+
 ## Authentication And Authorization
 
 Laravel Sanctum issues personal access tokens for mobile clients. Clients send
