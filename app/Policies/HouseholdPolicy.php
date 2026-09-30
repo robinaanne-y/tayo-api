@@ -183,6 +183,17 @@ class HouseholdPolicy
     }
 
     /**
+     * Only the requester can clear their own "needs attention" notification
+     * for a request that's been approved/declined.
+     */
+    public function acknowledgeRequest(User $user, Household $household, PermissionRequest $permissionRequest): bool
+    {
+        $membership = $user->membershipFor($household);
+
+        return $membership !== null && $permissionRequest->requester_member_id === $membership->member_id;
+    }
+
+    /**
      * Only the requester can withdraw their own request, and only while
      * it's still pending.
      */

@@ -28,6 +28,12 @@ class PermissionRequestResource extends JsonResource
             'is_overdue' => $this->status->value === 'pending'
                 && $this->requested_start_at !== null
                 && $this->requested_start_at->isPast(),
+            // Viewer-relative: true only when the current caller is the
+            // requester and hasn't acknowledged this resolution yet. An
+            // adult viewing someone else's approved/declined request
+            // always sees false here, regardless of the row's own state.
+            'needs_requester_attention' => $this->needsRequesterAcknowledgement()
+                && $request->user()?->member?->id === $this->requester_member_id,
             'created_at' => $this->created_at,
         ];
     }

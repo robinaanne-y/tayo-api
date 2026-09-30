@@ -166,6 +166,21 @@ class PermissionRequestController extends Controller
         ]);
     }
 
+    public function acknowledge(Request $request, Household $household, PermissionRequest $permissionRequest): JsonResponse
+    {
+        $permissionRequest = $this->requestFor($household, $permissionRequest);
+
+        $this->authorize('acknowledgeRequest', [$household, $permissionRequest]);
+
+        $permissionRequest->forceFill(['requester_acknowledged_at' => now()])->save();
+
+        return response()->json([
+            'data' => PermissionRequestResource::make(
+                $permissionRequest->fresh(['requester', 'respondedBy', 'conditions.createdBy']),
+            ),
+        ]);
+    }
+
     public function addCondition(
         AddRequestConditionRequest $request,
         Household $household,

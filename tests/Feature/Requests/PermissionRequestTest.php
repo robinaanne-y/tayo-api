@@ -407,4 +407,87 @@ class PermissionRequestTest extends TestCase
             ->getJson("/api/v1/households/{$otherHousehold->id}/requests/{$request->id}")
             ->assertNotFound();
     }
+
+    public function test_needs_requester_attention_is_true_for_the_requester_after_a_decision_and_false_for_others(): void
+    {
+        $owner = User::factory()->create();
+        $household = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $this->memberFor($owner, $household, HouseholdRole::Owner);
+
+        $minorUser = User::factory()->create();
+        $minorMember = $this->memberFor($minorUser, $household, HouseholdRole::Minor);
+
+        $request = PermissionRequest::factory()->create([
+            'household_id' => $household->id,
+            'requester_member_id' => $minorMember->id,
+        ]);
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/households/{$household->id}/requests/{$request->id}/decline")
+            ->assertOk();
+
+        $this->actingAs($minorUser)
+            ->getJson("/api/v1/households/{$household->id}/requests/{$request->id}")
+            ->assertOk()
+            ->assertJsonPath('data.needs_requester_attention', true);
+
+        // The deciding adult isn't the requester, so it's always false for them.
+        $this->actingAs($owner)
+            ->getJson("/api/v1/households/{$household->id}/requests/{$request->id}")
+            ->assertOk()
+            ->assertJsonPath('data.needs_requester_attention', false);
+    }
+
+    public function test_needs_requester_attention_is_false_before_a_decision_and_after_acknowledging(): void
+    {
+        $owner = User::factory()->create();
+        $household = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $this->memberFor($owner, $household, HouseholdRole::Owner);
+
+        $minorUser = User::factory()->create();
+        $minorMember = $this->memberFor($minorUser, $household, HouseholdRole::Minor);
+
+        $request = PermissionRequest::factory()->create([
+            'household_id' => $household->id,
+            'requester_member_id' => $minorMember->id,
+        ]);
+
+        // Still pending -- nothing to acknowledge yet.
+        $this->actingAs($minorUser)
+            ->getJson("/api/v1/households/{$household->id}/requests/{$request->id}")
+            ->assertOk()
+            ->assertJsonPath('data.needs_requester_attention', false);
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/households/{$household->id}/requests/{$request->id}/approve")
+            ->assertOk();
+
+        $this->actingAs($minorUser)
+            ->postJson("/api/v1/households/{$household->id}/requests/{$request->id}/acknowledge")
+            ->assertOk()
+            ->assertJsonPath('data.needs_requester_attention', false);
+    }
+
+    public function test_only_the_requester_can_acknowledge_their_request(): void
+    {
+        $owner = User::factory()->create();
+        $household = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $this->memberFor($owner, $household, HouseholdRole::Owner);
+
+        $minorUser = User::factory()->create();
+        $minorMember = $this->memberFor($minorUser, $household, HouseholdRole::Minor);
+
+        $request = PermissionRequest::factory()->create([
+            'household_id' => $household->id,
+            'requester_member_id' => $minorMember->id,
+        ]);
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/households/{$household->id}/requests/{$request->id}/approve")
+            ->assertOk();
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/households/{$household->id}/requests/{$request->id}/acknowledge")
+            ->assertForbidden();
+    }
 }

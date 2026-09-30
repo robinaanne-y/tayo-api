@@ -90,5 +90,9 @@ Route::prefix('v1')->group(function () {
             'households/{household}/requests/{permissionRequest}/conditions',
             [PermissionRequestController::class, 'addCondition'],
         );
+        Route::post(
+            'households/{household}/requests/{permissionRequest}/acknowledge',
+            [PermissionRequestController::class, 'acknowledge'],
+        );
     });
 });

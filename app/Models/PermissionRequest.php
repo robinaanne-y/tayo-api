@@ -24,6 +24,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'responded_at',
     'response_note',
     'promoted_event_id',
+    'requester_acknowledged_at',
 ])]
 class PermissionRequest extends Model
 {
@@ -37,7 +38,21 @@ class PermissionRequest extends Model
             'requested_end_at' => 'datetime',
             'status' => RequestStatus::class,
             'responded_at' => 'datetime',
+            'requester_acknowledged_at' => 'datetime',
         ];
+    }
+
+    /**
+     * True once an adult has resolved this request and the requester
+     * hasn't opened it since -- what the mobile app's notification bell
+     * badge and "Needs Your Attention" section surface to the requester.
+     * Reset only happens by acknowledging (see PermissionRequestController::acknowledge());
+     * approve()/decline() never touch this column themselves.
+     */
+    public function needsRequesterAcknowledgement(): bool
+    {
+        return in_array($this->status, [RequestStatus::Approved, RequestStatus::Declined], true)
+            && $this->requester_acknowledged_at === null;
     }
 
     public function household(): BelongsTo
