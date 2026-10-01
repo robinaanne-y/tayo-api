@@ -134,6 +134,10 @@ Route::prefix('v1')->group(function () {
 
         Route::get('households/{household}/grocery-items', [GroceryItemController::class, 'index']);
         Route::post('households/{household}/grocery-items', [GroceryItemController::class, 'store']);
+        Route::post(
+            'households/{household}/grocery-items/clear-purchased',
+            [GroceryItemController::class, 'clearPurchased'],
+        );
         Route::put(
             'households/{household}/grocery-items/{groceryItem}',
             [GroceryItemController::class, 'update'],

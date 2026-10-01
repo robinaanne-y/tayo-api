@@ -74,7 +74,7 @@ class GroceryItemController extends Controller
     {
         $groceryItem = $this->itemFor($household, $groceryItem);
 
-        $this->authorize('manageGroceryItem', $household);
+        $this->authorize('toggleGroceryItem', $household);
 
         $groceryItem->update([
             'purchased_at' => now(),
@@ -90,7 +90,7 @@ class GroceryItemController extends Controller
     {
         $groceryItem = $this->itemFor($household, $groceryItem);
 
-        $this->authorize('manageGroceryItem', $household);
+        $this->authorize('toggleGroceryItem', $household);
 
         $groceryItem->update([
             'purchased_at' => null,
@@ -109,6 +109,20 @@ class GroceryItemController extends Controller
         $this->authorize('manageGroceryItem', $household);
 
         $groceryItem->delete();
+
+        return response()->json(null, 204);
+    }
+
+    /**
+     * Bulk-clears every purchased item so the household can start a
+     * fresh list -- Owner/Adult only, same as editing/removing a single
+     * item.
+     */
+    public function clearPurchased(Household $household): JsonResponse
+    {
+        $this->authorize('manageGroceryItem', $household);
+
+        $household->groceryItems()->whereNotNull('purchased_at')->delete();
 
         return response()->json(null, 204);
     }

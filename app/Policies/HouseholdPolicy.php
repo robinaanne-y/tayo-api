@@ -326,19 +326,27 @@ class HouseholdPolicy
     }
 
     /**
-     * The grocery list is fully collaborative -- any household member
-     * can add, edit, mark purchased, or remove any item. Deliberately
-     * looser than meal plans/requests: the stakes of a wrong grocery
-     * edit are low, and a shared list only works if everyone can touch
-     * everything on it.
+     * Adding an item and checking it off are as open as the shared list
+     * itself -- any household member, including minors -- since those
+     * are the everyday "shopping" actions and the stakes of a wrong
+     * check-off are low. Editing an item's details, removing it, or
+     * clearing the purchased list are more consequential/structural, so
+     * those are Owner/Adult only (see `manageGroceryItem`).
      */
     public function addGroceryItem(User $user, Household $household): bool
     {
         return $user->membershipFor($household) !== null;
     }
 
-    public function manageGroceryItem(User $user, Household $household): bool
+    public function toggleGroceryItem(User $user, Household $household): bool
     {
         return $this->addGroceryItem($user, $household);
+    }
+
+    public function manageGroceryItem(User $user, Household $household): bool
+    {
+        $role = $user->membershipFor($household)?->role;
+
+        return $role?->canManageHousehold() ?? false;
     }
 }

@@ -114,7 +114,7 @@ class GroceryItemTest extends TestCase
             ->assertJsonPath('data.0.name', 'Purchased item');
     }
 
-    public function test_any_member_can_update_or_delete_an_item_regardless_of_who_added_it(): void
+    public function test_an_adult_can_update_or_delete_an_item_regardless_of_who_added_it_but_a_minor_cannot(): void
     {
         $owner = User::factory()->create();
         $household = Household::factory()->create(['created_by_user_id' => $owner->id]);
@@ -133,12 +133,58 @@ class GroceryItemTest extends TestCase
             ->putJson("/api/v1/households/{$household->id}/grocery-items/{$item->id}", [
                 'name' => 'Eggs (free range)',
             ])
-            ->assertOk()
-            ->assertJsonPath('data.name', 'Eggs (free range)');
+            ->assertForbidden();
 
         $this->actingAs($minorUser)
             ->deleteJson("/api/v1/households/{$household->id}/grocery-items/{$item->id}")
+            ->assertForbidden();
+
+        $this->actingAs($owner)
+            ->putJson("/api/v1/households/{$household->id}/grocery-items/{$item->id}", [
+                'name' => 'Eggs (free range)',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Eggs (free range)');
+
+        $this->actingAs($owner)
+            ->deleteJson("/api/v1/households/{$household->id}/grocery-items/{$item->id}")
             ->assertNoContent();
+    }
+
+    public function test_only_an_adult_can_clear_purchased_items(): void
+    {
+        $owner = User::factory()->create();
+        $household = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $ownerMember = $this->memberFor($owner, $household, HouseholdRole::Owner);
+
+        $minorUser = User::factory()->create();
+        $this->memberFor($minorUser, $household, HouseholdRole::Minor);
+
+        GroceryItem::factory()->create([
+            'household_id' => $household->id,
+            'added_by_member_id' => $ownerMember->id,
+            'purchased_at' => now(),
+            'purchased_by_member_id' => $ownerMember->id,
+        ]);
+        GroceryItem::factory()->create([
+            'household_id' => $household->id,
+            'added_by_member_id' => $ownerMember->id,
+            'name' => 'Still shopping for this',
+        ]);
+
+        $this->actingAs($minorUser)
+            ->postJson("/api/v1/households/{$household->id}/grocery-items/clear-purchased")
+            ->assertForbidden();
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/households/{$household->id}/grocery-items/clear-purchased")
+            ->assertNoContent();
+
+        $this->actingAs($owner)
+            ->getJson("/api/v1/households/{$household->id}/grocery-items")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.name', 'Still shopping for this');
     }
 
     public function test_an_item_cannot_be_reached_through_a_different_household(): void
