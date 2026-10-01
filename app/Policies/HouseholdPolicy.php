@@ -243,17 +243,28 @@ class HouseholdPolicy
 
     /**
      * A meal plan item is a shared household artifact, not a personal
-     * post like a Family Note -- any Owner/Adult can add, edit, or
-     * remove any item, not just the one who added it. Viewing the plan
-     * itself needs no dedicated gate: the existing `view` ability
-     * (any household member) already covers it, same as `index()` on
-     * every other household-scoped list.
+     * post like a Family Note. When the household has designated a
+     * meal approver (`meal_approver_member_id`), that one member fully
+     * replaces the role check -- not additive -- so even the Owner must
+     * go through the request flow. With no approver set, any Owner/
+     * Adult can add, edit, or remove any item, not just the one who
+     * added it. Viewing the plan itself needs no dedicated gate: the
+     * existing `view` ability (any household member) already covers
+     * it, same as `index()` on every other household-scoped list.
      */
     public function addMealPlanItem(User $user, Household $household): bool
     {
-        $role = $user->membershipFor($household)?->role;
+        $membership = $user->membershipFor($household);
 
-        return $role?->canManageHousehold() ?? false;
+        if ($membership === null) {
+            return false;
+        }
+
+        if ($household->meal_approver_member_id !== null) {
+            return $membership->member_id === $household->meal_approver_member_id;
+        }
+
+        return $membership->role?->canManageHousehold() ?? false;
     }
 
     public function manageMealPlanItem(User $user, Household $household): bool
@@ -286,7 +297,8 @@ class HouseholdPolicy
     }
 
     /**
-     * Mirrors actOnRequest exactly: Owner/Adult, never the requester,
+     * Same approver-replaces-role logic as addMealPlanItem, combined
+     * with actOnRequest's own rules: never the requester,
      * pending only.
      */
     public function actOnMealRequest(User $user, Household $household, MealRequest $mealRequest): bool
@@ -297,7 +309,11 @@ class HouseholdPolicy
             return false;
         }
 
-        return ($membership->role?->canManageHousehold() ?? false)
+        $canManage = $household->meal_approver_member_id !== null
+            ? $membership->member_id === $household->meal_approver_member_id
+            : ($membership->role?->canManageHousehold() ?? false);
+
+        return $canManage
             && $mealRequest->requester_member_id !== $membership->member_id
             && $mealRequest->isPending();
     }

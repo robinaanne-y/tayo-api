@@ -210,4 +210,40 @@ class MealRequestTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.needs_requester_attention', false);
     }
+
+    public function test_when_a_meal_approver_is_set_only_they_can_act_on_a_request_not_other_adults_or_the_owner(): void
+    {
+        $owner = User::factory()->create();
+        $household = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $this->memberFor($owner, $household, HouseholdRole::Owner);
+
+        $otherAdultUser = User::factory()->create();
+        $this->memberFor($otherAdultUser, $household, HouseholdRole::Adult);
+
+        $approverUser = User::factory()->create();
+        $approver = $this->memberFor($approverUser, $household, HouseholdRole::Adult);
+
+        $requesterUser = User::factory()->create();
+        $requesterMember = $this->memberFor($requesterUser, $household, HouseholdRole::Minor);
+
+        $household->update(['meal_approver_member_id' => $approver->id]);
+
+        $request = MealRequest::factory()->create([
+            'household_id' => $household->id,
+            'requester_member_id' => $requesterMember->id,
+        ]);
+
+        $this->actingAs($owner)
+            ->postJson("/api/v1/households/{$household->id}/meal-requests/{$request->id}/approve")
+            ->assertForbidden();
+
+        $this->actingAs($otherAdultUser)
+            ->postJson("/api/v1/households/{$household->id}/meal-requests/{$request->id}/approve")
+            ->assertForbidden();
+
+        $this->actingAs($approverUser)
+            ->postJson("/api/v1/households/{$household->id}/meal-requests/{$request->id}/approve")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'approved');
+    }
 }

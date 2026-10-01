@@ -14,6 +14,14 @@ class HouseholdResource extends JsonResource
             'name' => $this->name,
             'color' => $this->color,
             'emoji' => $this->emoji,
+            'meal_approver_member_id' => $this->meal_approver_member_id,
+            // Only present where the caller eager-loaded the relation;
+            // the id above is always present and is all the mobile
+            // client needs for its own permission check.
+            'meal_approver_name' => $this->whenLoaded(
+                'mealApprover',
+                fn () => $this->mealApprover?->name,
+            ),
             // Present when loaded via the authenticated member's pivot,
             // e.g. GET /households listing "my households".
             'my_role' => $this->when(
