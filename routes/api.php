@@ -5,8 +5,11 @@ use App\Http\Controllers\Api\V1\AnnouncementController;
 use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\EventController;
 use App\Http\Controllers\Api\V1\FamilyNoteController;
+use App\Http\Controllers\Api\V1\GroceryItemController;
 use App\Http\Controllers\Api\V1\HouseholdController;
 use App\Http\Controllers\Api\V1\InvitationController;
+use App\Http\Controllers\Api\V1\MealPlanItemController;
+use App\Http\Controllers\Api\V1\MealRequestController;
 use App\Http\Controllers\Api\V1\MemberController;
 use App\Http\Controllers\Api\V1\PermissionRequestController;
 use Illuminate\Support\Facades\Route;
@@ -93,6 +96,59 @@ Route::prefix('v1')->group(function () {
         Route::post(
             'households/{household}/requests/{permissionRequest}/acknowledge',
             [PermissionRequestController::class, 'acknowledge'],
+        );
+
+        Route::get('households/{household}/meal-plan-items', [MealPlanItemController::class, 'index']);
+        Route::post('households/{household}/meal-plan-items', [MealPlanItemController::class, 'store']);
+        Route::delete(
+            'households/{household}/meal-plan-items/{mealPlanItem}',
+            [MealPlanItemController::class, 'destroy'],
+        );
+
+        Route::get('households/{household}/meal-requests', [MealRequestController::class, 'index']);
+        Route::post('households/{household}/meal-requests', [MealRequestController::class, 'store']);
+        Route::get(
+            'households/{household}/meal-requests/{mealRequest}',
+            [MealRequestController::class, 'show'],
+        );
+        Route::put(
+            'households/{household}/meal-requests/{mealRequest}',
+            [MealRequestController::class, 'update'],
+        );
+        Route::post(
+            'households/{household}/meal-requests/{mealRequest}/approve',
+            [MealRequestController::class, 'approve'],
+        );
+        Route::post(
+            'households/{household}/meal-requests/{mealRequest}/decline',
+            [MealRequestController::class, 'decline'],
+        );
+        Route::post(
+            'households/{household}/meal-requests/{mealRequest}/cancel',
+            [MealRequestController::class, 'cancel'],
+        );
+        Route::post(
+            'households/{household}/meal-requests/{mealRequest}/acknowledge',
+            [MealRequestController::class, 'acknowledge'],
+        );
+
+        Route::get('households/{household}/grocery-items', [GroceryItemController::class, 'index']);
+        Route::post('households/{household}/grocery-items', [GroceryItemController::class, 'store']);
+        Route::put(
+            'households/{household}/grocery-items/{groceryItem}',
+            [GroceryItemController::class, 'update'],
+        );
+        Route::post(
+            'households/{household}/grocery-items/{groceryItem}/purchase',
+            [GroceryItemController::class, 'purchase'],
+        );
+        Route::post(
+            'households/{household}/grocery-items/{groceryItem}/unpurchase',
+            [GroceryItemController::class, 'unpurchase'],
+        );
+        Route::delete(
+            'households/{household}/grocery-items/{groceryItem}',
+            [GroceryItemController::class, 'destroy'],
         );
     });
 });

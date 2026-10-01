@@ -7,6 +7,7 @@ use App\Models\Announcement;
 use App\Models\Event;
 use App\Models\FamilyNote;
 use App\Models\Household;
+use App\Models\MealRequest;
 use App\Models\PermissionRequest;
 use App\Models\User;
 
@@ -238,5 +239,90 @@ class HouseholdPolicy
 
         return ($membership->role?->canManageHousehold() ?? false)
             && $permissionRequest->requester_member_id !== $membership->member_id;
+    }
+
+    /**
+     * A meal plan item is a shared household artifact, not a personal
+     * post like a Family Note -- any Owner/Adult can add, edit, or
+     * remove any item, not just the one who added it. Viewing the plan
+     * itself needs no dedicated gate: the existing `view` ability
+     * (any household member) already covers it, same as `index()` on
+     * every other household-scoped list.
+     */
+    public function addMealPlanItem(User $user, Household $household): bool
+    {
+        $role = $user->membershipFor($household)?->role;
+
+        return $role?->canManageHousehold() ?? false;
+    }
+
+    public function manageMealPlanItem(User $user, Household $household): bool
+    {
+        return $this->addMealPlanItem($user, $household);
+    }
+
+    /**
+     * Any member can request a meal (mirrors addRequest).
+     */
+    public function addMealRequest(User $user, Household $household): bool
+    {
+        return $user->membershipFor($household) !== null;
+    }
+
+    public function updateMealRequest(User $user, Household $household, MealRequest $mealRequest): bool
+    {
+        $membership = $user->membershipFor($household);
+
+        if ($membership === null) {
+            return false;
+        }
+
+        return $mealRequest->requester_member_id === $membership->member_id && $mealRequest->isPending();
+    }
+
+    public function cancelMealRequest(User $user, Household $household, MealRequest $mealRequest): bool
+    {
+        return $this->updateMealRequest($user, $household, $mealRequest);
+    }
+
+    /**
+     * Mirrors actOnRequest exactly: Owner/Adult, never the requester,
+     * pending only.
+     */
+    public function actOnMealRequest(User $user, Household $household, MealRequest $mealRequest): bool
+    {
+        $membership = $user->membershipFor($household);
+
+        if ($membership === null) {
+            return false;
+        }
+
+        return ($membership->role?->canManageHousehold() ?? false)
+            && $mealRequest->requester_member_id !== $membership->member_id
+            && $mealRequest->isPending();
+    }
+
+    public function acknowledgeMealRequest(User $user, Household $household, MealRequest $mealRequest): bool
+    {
+        $membership = $user->membershipFor($household);
+
+        return $membership !== null && $mealRequest->requester_member_id === $membership->member_id;
+    }
+
+    /**
+     * The grocery list is fully collaborative -- any household member
+     * can add, edit, mark purchased, or remove any item. Deliberately
+     * looser than meal plans/requests: the stakes of a wrong grocery
+     * edit are low, and a shared list only works if everyone can touch
+     * everything on it.
+     */
+    public function addGroceryItem(User $user, Household $household): bool
+    {
+        return $user->membershipFor($household) !== null;
+    }
+
+    public function manageGroceryItem(User $user, Household $household): bool
+    {
+        return $this->addGroceryItem($user, $household);
     }
 }

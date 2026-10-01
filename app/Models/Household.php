@@ -58,4 +58,19 @@ class Household extends Model
     {
         return $this->hasMany(PermissionRequest::class);
     }
+
+    public function mealPlanItems(): HasMany
+    {
+        return $this->hasMany(MealPlanItem::class);
+    }
+
+    public function mealRequests(): HasMany
+    {
+        return $this->hasMany(MealRequest::class);
+    }
+
+    public function groceryItems(): HasMany
+    {
+        return $this->hasMany(GroceryItem::class);
+    }
 }
