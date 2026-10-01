@@ -258,7 +258,7 @@ right subset of events in each.
   every request, unlike Events' 4-level visibility.
 - `expired` stays in the enum for schema completeness; nothing
   auto-transitions into it yet (genuinely Phase 9/Scheduler territory).
-- `meal_requests` — deferred to Phase 5, reusing `Approvable`.
+- `meal_requests` — built in Phase 5, reusing `Approvable` unchanged.
 - Notification hook: `App\Events\PermissionRequestCreated`/`Approved`/
   `Declined` are dispatched with no listeners yet — the extension point
   Phase 9 will consume.
@@ -270,18 +270,47 @@ with conditions and an optional calendar event created atomically. Met.
 
 ---
 
-## Phase 5 — Meals & Groceries — **MVP boundary**
+## Phase 5 — Meals & Groceries — ✅ Done — **MVP boundary**
 
-- Tables: `meal_plans`, `meal_plan_items`, `meal_requests`.
-- Tables: `grocery_lists`, `grocery_items` (name, quantity, unit,
-  category, added_by, purchased_at, purchased_by).
-- Endpoints under `/api/v1/households/{household}/meal-plans` and
-  `/api/v1/households/{household}/grocery-lists`.
-- Meal request flow mirrors Phase 4's approval mechanics: member requests
-  → adult approves/declines/moves-day → becomes a `meal_plan_items` row.
-- Explicitly do not build a recipe engine or meal→ingredient→grocery
-  auto-generation in this phase (mobile roadmap is explicit about this).
-- Grocery "shopping mode" is a client-side concern — no new table for it.
+- Tables: `meal_plan_items`, `meal_requests`, `grocery_items`. **No
+  `meal_plans` or `grocery_lists` parent tables** — a deliberate
+  deviation from the schema originally sketched above. Neither earns
+  its keep for v1: there's exactly one ongoing grocery list per
+  household, and meal plan items are naturally queried by
+  `household_id` + date range with no need for a week-grouping parent
+  row — this mirrors how `events` has no "calendar" parent row.
+  `meal_plan_items` and `grocery_items` each carry `household_id`
+  directly.
+- Endpoints under `/api/v1/households/{household}/meal-plan-items`,
+  `/meal-requests`, and `/grocery-items` (not `/meal-plans`/
+  `/grocery-lists`, following from the no-parent-table decision above).
+- `meal_plan_items` has no dedicated update endpoint — `store()` is an
+  upsert keyed on `(household_id, date, slot)`, since "change what's
+  for Tuesday dinner" and "set Tuesday dinner" are the same action from
+  the user's perspective. Only `index`/`store`/`destroy` exist.
+  (Implementation note: Eloquent's `updateOrCreate()` doesn't reliably
+  match an existing row when a matched column has a non-trivial cast —
+  here, `slot`'s backed enum — so the upsert is an explicit
+  find-then-write, `MealPlanItem::upsertFor()`.)
+- Meal request flow mirrors Phase 4's approval mechanics exactly,
+  reusing the `Approvable` trait unchanged: member requests → adult
+  approves/declines → becomes a `meal_plan_items` row. "Adult can move
+  it to another day" is folded into `approve()`'s optional `date`/
+  `slot` overrides rather than a separate endpoint — mirrors how
+  `PermissionRequestController::approve()` already takes an optional
+  `create_event` rather than a separate promote endpoint.
+- `HouseholdPolicy`: meal plan items are Owner/Adult-managed only (any
+  adult can add/edit/delete any item — a meal plan is a shared
+  household artifact, not a personal post, unlike Family Notes'
+  "author or adult" rule). Grocery items are fully open to any
+  household member including minors — add/edit/purchase/delete
+  anything — since the stakes of a wrong grocery edit are low and full
+  collaboration is the point.
+- Explicitly did not build a recipe engine or meal→ingredient→grocery
+  auto-generation in this phase (mobile roadmap is explicit about
+  this).
+- Grocery "shopping mode" is a client-side concern (checking an item
+  off *is* shopping mode) — no new table for it.
 
 ### Milestone
 
@@ -289,7 +318,7 @@ Everything in the mobile MVP list has a backing endpoint: accounts,
 households, members, placeholders, invitations, activation, home, notes,
 announcements, reminders, calendar, scheduling, permission requests, meal
 planning, meal requests, grocery list. **This is the API's MVP-complete
-line**, matching the mobile roadmap's MVP boundary.
+line**, matching the mobile roadmap's MVP boundary. Met.
 
 ---
 
@@ -396,7 +425,7 @@ RevenueCat as the source of truth for payment state only.
 | 2 | Home + Family Feed | family_notes, announcements | Phase 1 |
 | 3 | Calendar + Scheduling | events, event_participants, event_households, recurring_rules | Phase 1 |
 | 4 | Family Requests | permission_requests, request_conditions | Phase 1, 3 (for promote-to-event) — ✅ Done |
-| 5 | Meals + Groceries | meal_plans, meal_plan_items, meal_requests, grocery_lists, grocery_items | Phase 4 (approval flow) — **MVP line** |
+| 5 | Meals + Groceries | meal_plan_items, meal_requests, grocery_items | Phase 4 (approval flow) — ✅ Done — **MVP line** |
 | 6 | Tasks + Chores | tasks, task_assignments, task_recurrences, task_completions | Phase 1 |
 | 7 | Trips + Events | trips, trip_participants, trip_itinerary_items, trip_checklists, trip_checklist_items | Phase 3, 5 |
 | 8 | Family Map + Location | member_location_settings, member_locations, saved_places, geofences | Phase 1 + privacy review |
