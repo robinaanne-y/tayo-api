@@ -246,4 +246,33 @@ class MealRequestTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.status', 'approved');
     }
+
+    public function test_a_pending_request_whose_date_has_passed_shows_as_expired_when_listed(): void
+    {
+        $owner = User::factory()->create();
+        $household = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $this->memberFor($owner, $household, HouseholdRole::Owner);
+
+        $minorUser = User::factory()->create();
+        $minorMember = $this->memberFor($minorUser, $household, HouseholdRole::Minor);
+
+        $overdue = MealRequest::factory()->create([
+            'household_id' => $household->id,
+            'requester_member_id' => $minorMember->id,
+            'requested_date' => now()->subDay()->toDateString(),
+        ]);
+        $upcoming = MealRequest::factory()->create([
+            'household_id' => $household->id,
+            'requester_member_id' => $minorMember->id,
+            'requested_date' => now()->addDay()->toDateString(),
+        ]);
+
+        $this->actingAs($owner)
+            ->getJson("/api/v1/households/{$household->id}/meal-requests?status=pending")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $upcoming->id);
+
+        $this->assertSame('expired', $overdue->fresh()->status->value);
+    }
 }

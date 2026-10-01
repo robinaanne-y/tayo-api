@@ -25,6 +25,8 @@ class MealRequestController extends Controller
     {
         $this->authorize('view', $household);
 
+        $this->expireOverdue($household);
+
         $query = $household->mealRequests()->with(['requester', 'respondedBy']);
 
         if ($request->filled('status')) {
@@ -166,5 +168,21 @@ class MealRequestController extends Controller
         abort_if($mealRequest->household_id !== $household->id, 404);
 
         return $mealRequest;
+    }
+
+    /**
+     * A pending request whose date has already passed is no longer
+     * actionable -- nobody can "approve dinner for a day that already
+     * happened" -- so it's flipped to `expired` lazily (no scheduler
+     * needed) the next time the household's requests are listed. This
+     * keeps it out of the "pending" view the approver acts on, same as
+     * if it had actually run through a status transition at the time.
+     */
+    private function expireOverdue(Household $household): void
+    {
+        $household->mealRequests()
+            ->where('status', RequestStatus::Pending)
+            ->where('requested_date', '<', now()->startOfDay()->toDateString())
+            ->update(['status' => RequestStatus::Expired]);
     }
 }
