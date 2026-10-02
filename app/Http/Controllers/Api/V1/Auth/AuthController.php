@@ -24,7 +24,7 @@ class AuthController extends Controller
             'password' => Hash::make($request->validated('password')),
         ]);
 
-        $user->load(['member.households' => fn ($query) => $query->withCount('members')]);
+        $user->load(['member.households' => fn ($query) => $query->withCount('members')->with('mealApprover')]);
         $token = $user->createToken($request->userAgent() ?? 'mobile')->plainTextToken;
 
         return response()->json([
@@ -43,7 +43,7 @@ class AuthController extends Controller
             ]);
         }
 
-        $user->load(['member.households' => fn ($query) => $query->withCount('members')]);
+        $user->load(['member.households' => fn ($query) => $query->withCount('members')->with('mealApprover')]);
         $deviceName = $request->validated('device_name') ?? $request->userAgent() ?? 'mobile';
         $token = $user->createToken($deviceName)->plainTextToken;
 
@@ -63,7 +63,7 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         $user = $request->user();
-        $user->load(['member.households' => fn ($query) => $query->withCount('members')]);
+        $user->load(['member.households' => fn ($query) => $query->withCount('members')->with('mealApprover')]);
 
         return response()->json([
             'data' => UserResource::make($user),
@@ -74,7 +74,7 @@ class AuthController extends Controller
     {
         $user = $request->user();
         $user->update($request->validated());
-        $user->load(['member.households' => fn ($query) => $query->withCount('members')]);
+        $user->load(['member.households' => fn ($query) => $query->withCount('members')->with('mealApprover')]);
 
         return response()->json([
             'data' => UserResource::make($user),

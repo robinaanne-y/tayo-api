@@ -20,7 +20,7 @@ class HouseholdController extends Controller
         $member = $request->user()->member;
 
         $households = $member
-            ? $member->households()->withCount('members')->get()
+            ? $member->households()->withCount('members')->with('mealApprover')->get()
             : collect();
 
         return response()->json([
@@ -63,7 +63,7 @@ class HouseholdController extends Controller
         $this->authorize('view', $household);
 
         return response()->json([
-            'data' => HouseholdResource::make($household),
+            'data' => HouseholdResource::make($household->load('mealApprover')),
         ]);
     }
 
@@ -72,7 +72,7 @@ class HouseholdController extends Controller
         $household->update($request->validated());
 
         return response()->json([
-            'data' => HouseholdResource::make($household),
+            'data' => HouseholdResource::make($household->load('mealApprover')),
         ]);
     }
 }

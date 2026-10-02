@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'color', 'emoji', 'created_by_user_id'])]
+#[Fillable(['name', 'color', 'emoji', 'created_by_user_id', 'meal_approver_member_id'])]
 class Household extends Model
 {
     /** @use HasFactory<HouseholdFactory> */
@@ -19,6 +19,16 @@ class Household extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    /**
+     * The one member designated to manage the meal plan and approve/
+     * decline meal requests, when set -- see HouseholdPolicy's meal
+     * methods. Null means no delegation: any Owner/Adult manages.
+     */
+    public function mealApprover(): BelongsTo
+    {
+        return $this->belongsTo(Member::class, 'meal_approver_member_id');
     }
 
     public function memberships(): HasMany
@@ -57,5 +67,20 @@ class Household extends Model
     public function requests(): HasMany
     {
         return $this->hasMany(PermissionRequest::class);
+    }
+
+    public function mealPlanItems(): HasMany
+    {
+        return $this->hasMany(MealPlanItem::class);
+    }
+
+    public function mealRequests(): HasMany
+    {
+        return $this->hasMany(MealRequest::class);
+    }
+
+    public function groceryItems(): HasMany
+    {
+        return $this->hasMany(GroceryItem::class);
     }
 }

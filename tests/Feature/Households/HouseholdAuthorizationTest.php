@@ -79,4 +79,37 @@ class HouseholdAuthorizationTest extends TestCase
             ->assertJsonPath('data.color', '#5B9BD5')
             ->assertJsonPath('data.emoji', '🌿');
     }
+
+    public function test_the_owner_can_set_and_clear_the_meal_approver(): void
+    {
+        $owner = User::factory()->create();
+        $household = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $this->memberFor($owner, $household, HouseholdRole::Owner);
+        $adult = $this->memberFor(User::factory()->create(), $household, HouseholdRole::Adult);
+
+        $this->actingAs($owner)
+            ->patchJson("/api/v1/households/{$household->id}", ['meal_approver_member_id' => $adult->id])
+            ->assertOk()
+            ->assertJsonPath('data.meal_approver_member_id', $adult->id)
+            ->assertJsonPath('data.meal_approver_name', $adult->name);
+
+        $this->actingAs($owner)
+            ->patchJson("/api/v1/households/{$household->id}", ['meal_approver_member_id' => null])
+            ->assertOk()
+            ->assertJsonPath('data.meal_approver_member_id', null);
+    }
+
+    public function test_a_member_of_another_household_cannot_be_set_as_meal_approver(): void
+    {
+        $owner = User::factory()->create();
+        $household = Household::factory()->create(['created_by_user_id' => $owner->id]);
+        $this->memberFor($owner, $household, HouseholdRole::Owner);
+
+        $otherHousehold = Household::factory()->create();
+        $outsider = $this->memberFor(User::factory()->create(), $otherHousehold, HouseholdRole::Owner);
+
+        $this->actingAs($owner)
+            ->patchJson("/api/v1/households/{$household->id}", ['meal_approver_member_id' => $outsider->id])
+            ->assertUnprocessable();
+    }
 }

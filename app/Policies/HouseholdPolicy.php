@@ -7,6 +7,7 @@ use App\Models\Announcement;
 use App\Models\Event;
 use App\Models\FamilyNote;
 use App\Models\Household;
+use App\Models\MealRequest;
 use App\Models\PermissionRequest;
 use App\Models\User;
 
@@ -238,5 +239,114 @@ class HouseholdPolicy
 
         return ($membership->role?->canManageHousehold() ?? false)
             && $permissionRequest->requester_member_id !== $membership->member_id;
+    }
+
+    /**
+     * A meal plan item is a shared household artifact, not a personal
+     * post like a Family Note. When the household has designated a
+     * meal approver (`meal_approver_member_id`), that one member fully
+     * replaces the role check -- not additive -- so even the Owner must
+     * go through the request flow. With no approver set, any Owner/
+     * Adult can add, edit, or remove any item, not just the one who
+     * added it. Viewing the plan itself needs no dedicated gate: the
+     * existing `view` ability (any household member) already covers
+     * it, same as `index()` on every other household-scoped list.
+     */
+    public function addMealPlanItem(User $user, Household $household): bool
+    {
+        $membership = $user->membershipFor($household);
+
+        if ($membership === null) {
+            return false;
+        }
+
+        if ($household->meal_approver_member_id !== null) {
+            return $membership->member_id === $household->meal_approver_member_id;
+        }
+
+        return $membership->role?->canManageHousehold() ?? false;
+    }
+
+    public function manageMealPlanItem(User $user, Household $household): bool
+    {
+        return $this->addMealPlanItem($user, $household);
+    }
+
+    /**
+     * Any member can request a meal (mirrors addRequest).
+     */
+    public function addMealRequest(User $user, Household $household): bool
+    {
+        return $user->membershipFor($household) !== null;
+    }
+
+    public function updateMealRequest(User $user, Household $household, MealRequest $mealRequest): bool
+    {
+        $membership = $user->membershipFor($household);
+
+        if ($membership === null) {
+            return false;
+        }
+
+        return $mealRequest->requester_member_id === $membership->member_id && $mealRequest->isPending();
+    }
+
+    public function cancelMealRequest(User $user, Household $household, MealRequest $mealRequest): bool
+    {
+        return $this->updateMealRequest($user, $household, $mealRequest);
+    }
+
+    /**
+     * Same approver-replaces-role logic as addMealPlanItem, combined
+     * with actOnRequest's own rules: never the requester,
+     * pending only.
+     */
+    public function actOnMealRequest(User $user, Household $household, MealRequest $mealRequest): bool
+    {
+        $membership = $user->membershipFor($household);
+
+        if ($membership === null) {
+            return false;
+        }
+
+        $canManage = $household->meal_approver_member_id !== null
+            ? $membership->member_id === $household->meal_approver_member_id
+            : ($membership->role?->canManageHousehold() ?? false);
+
+        return $canManage
+            && $mealRequest->requester_member_id !== $membership->member_id
+            && $mealRequest->isPending();
+    }
+
+    public function acknowledgeMealRequest(User $user, Household $household, MealRequest $mealRequest): bool
+    {
+        $membership = $user->membershipFor($household);
+
+        return $membership !== null && $mealRequest->requester_member_id === $membership->member_id;
+    }
+
+    /**
+     * Adding an item and checking it off are as open as the shared list
+     * itself -- any household member, including minors -- since those
+     * are the everyday "shopping" actions and the stakes of a wrong
+     * check-off are low. Editing an item's details, removing it, or
+     * clearing the purchased list are more consequential/structural, so
+     * those are Owner/Adult only (see `manageGroceryItem`).
+     */
+    public function addGroceryItem(User $user, Household $household): bool
+    {
+        return $user->membershipFor($household) !== null;
+    }
+
+    public function toggleGroceryItem(User $user, Household $household): bool
+    {
+        return $this->addGroceryItem($user, $household);
+    }
+
+    public function manageGroceryItem(User $user, Household $household): bool
+    {
+        $role = $user->membershipFor($household)?->role;
+
+        return $role?->canManageHousehold() ?? false;
     }
 }
