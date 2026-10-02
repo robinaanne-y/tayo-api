@@ -44,6 +44,27 @@ class HouseholdCreationTest extends TestCase
         $this->assertDatabaseCount('household_memberships', 2);
     }
 
+    public function test_the_first_household_someone_creates_becomes_their_default(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->postJson('/api/v1/households', ['name' => 'First Household']);
+        $householdId = $response->json('data.id');
+
+        $this->assertSame($householdId, $user->fresh()->default_household_id);
+    }
+
+    public function test_creating_a_further_household_does_not_override_an_existing_default(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user)->postJson('/api/v1/households', ['name' => 'First Household']);
+        $firstDefaultId = $user->fresh()->default_household_id;
+
+        $this->actingAs($user)->postJson('/api/v1/households', ['name' => 'Second Household']);
+
+        $this->assertSame($firstDefaultId, $user->fresh()->default_household_id);
+    }
+
     public function test_household_name_is_required(): void
     {
         $user = User::factory()->create();

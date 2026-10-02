@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Requests\Auth\UpdateDefaultHouseholdRequest;
 use App\Http\Requests\Auth\UpdateProfileRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
@@ -74,6 +75,17 @@ class AuthController extends Controller
     {
         $user = $request->user();
         $user->update($request->validated());
+        $user->load(['member.households' => fn ($query) => $query->withCount('members')->with('mealApprover')]);
+
+        return response()->json([
+            'data' => UserResource::make($user),
+        ]);
+    }
+
+    public function updateDefaultHousehold(UpdateDefaultHouseholdRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $user->update(['default_household_id' => $request->validated('household_id')]);
         $user->load(['member.households' => fn ($query) => $query->withCount('members')->with('mealApprover')]);
 
         return response()->json([

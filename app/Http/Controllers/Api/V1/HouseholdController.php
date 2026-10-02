@@ -50,6 +50,14 @@ class HouseholdController extends Controller
                 'role' => HouseholdRole::Owner,
             ]);
 
+            // The first household someone creates becomes their default
+            // automatically -- there's no "unset" state to manage from
+            // onboarding. Doesn't override an existing explicit pick if
+            // they go on to create further households later.
+            if ($user->default_household_id === null) {
+                $user->update(['default_household_id' => $household->id]);
+            }
+
             return $household;
         });
 
