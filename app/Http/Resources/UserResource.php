@@ -13,6 +13,7 @@ class UserResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'email' => $this->email,
+            'default_household_id' => $this->default_household_id,
             'member' => MemberResource::make($this->whenLoaded('member')),
             'households' => $this->when(
                 $this->relationLoaded('member') && $this->member?->relationLoaded('households'),

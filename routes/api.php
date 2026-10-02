@@ -23,6 +23,7 @@ Route::prefix('v1')->group(function () {
             Route::post('logout', [AuthController::class, 'logout']);
             Route::get('me', [AuthController::class, 'me']);
             Route::patch('me', [AuthController::class, 'updateProfile']);
+            Route::patch('default-household', [AuthController::class, 'updateDefaultHousehold']);
         });
     });
 
