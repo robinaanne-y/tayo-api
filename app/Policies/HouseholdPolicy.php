@@ -9,6 +9,7 @@ use App\Models\FamilyNote;
 use App\Models\Household;
 use App\Models\MealRequest;
 use App\Models\PermissionRequest;
+use App\Models\Task;
 use App\Models\User;
 
 class HouseholdPolicy
@@ -388,5 +389,53 @@ class HouseholdPolicy
         $role = $user->membershipFor($household)?->role;
 
         return $role?->canManageHousehold() ?? false;
+    }
+
+    /**
+     * Creating/structuring a task is Owner/Adult only -- a household
+     * responsibility isn't a free-for-all post like a Family Note.
+     */
+    public function addTask(User $user, Household $household): bool
+    {
+        $role = $user->membershipFor($household)?->role;
+
+        return $role?->canManageHousehold() ?? false;
+    }
+
+    /**
+     * Editing (reassigning, changing title/due date) or deleting a task is
+     * the same structural tier as creating one.
+     */
+    public function manageTask(User $user, Household $household, Task $task): bool
+    {
+        if ($task->household_id !== $household->id) {
+            return false;
+        }
+
+        $role = $user->membershipFor($household)?->role;
+
+        return $role?->canManageHousehold() ?? false;
+    }
+
+    /**
+     * Marking a task complete/incomplete is as open as the shared grocery
+     * list's purchase toggle -- the assignee (even a minor) can check off
+     * their own chore without needing an adult, and an Owner/Adult can
+     * complete/uncomplete anyone's.
+     */
+    public function toggleTask(User $user, Household $household, Task $task): bool
+    {
+        if ($task->household_id !== $household->id) {
+            return false;
+        }
+
+        $membership = $user->membershipFor($household);
+
+        if ($membership === null) {
+            return false;
+        }
+
+        return $task->assigned_member_id === $membership->member_id
+            || ($membership->role?->canManageHousehold() ?? false);
     }
 }

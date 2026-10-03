@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\MealPlanItemController;
 use App\Http\Controllers\Api\V1\MealRequestController;
 use App\Http\Controllers\Api\V1\MemberController;
 use App\Http\Controllers\Api\V1\PermissionRequestController;
+use App\Http\Controllers\Api\V1\TaskController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -155,5 +156,13 @@ Route::prefix('v1')->group(function () {
             'households/{household}/grocery-items/{groceryItem}',
             [GroceryItemController::class, 'destroy'],
         );
+
+        Route::get('households/{household}/tasks', [TaskController::class, 'index']);
+        Route::post('households/{household}/tasks', [TaskController::class, 'store']);
+        Route::get('households/{household}/tasks/{task}', [TaskController::class, 'show']);
+        Route::put('households/{household}/tasks/{task}', [TaskController::class, 'update']);
+        Route::delete('households/{household}/tasks/{task}', [TaskController::class, 'destroy']);
+        Route::post('households/{household}/tasks/{task}/complete', [TaskController::class, 'complete']);
+        Route::post('households/{household}/tasks/{task}/uncomplete', [TaskController::class, 'uncomplete']);
     });
 });
