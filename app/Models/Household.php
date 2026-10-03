@@ -83,4 +83,9 @@ class Household extends Model
     {
         return $this->hasMany(GroceryItem::class);
     }
+
+    public function tasks(): HasMany
+    {
+        return $this->hasMany(Task::class);
+    }
 }

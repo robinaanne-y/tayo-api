@@ -144,4 +144,53 @@ class RecurrenceGenerator
 
         return $occurrences;
     }
+
+    /**
+     * Computes the single next occurrence date after $after, for the
+     * backend-generated (one-row-at-a-time) recurrence used by Tasks --
+     * unlike generate() above, which eagerly expands a whole bounded range
+     * up front for Events. $anchorWeekStart must be the rule's *first*
+     * occurrence's week start (not $after's own week) so that an interval
+     * greater than 1 combined with $byDay correctly distinguishes an
+     * "active" week from a "skipped" one -- stepping relative to $after
+     * alone can't tell those apart once by-day and interval > 1 combine.
+     *
+     * @param  array<int>|null  $byDay  ISO weekdays (1 = Monday .. 7 = Sunday), weekly only.
+     */
+    public function nextOccurrenceDate(
+        Carbon $after,
+        string $frequency,
+        int $interval,
+        ?array $byDay,
+        Carbon $anchorWeekStart,
+    ): Carbon {
+        return match ($frequency) {
+            'daily' => $after->copy()->addDays($interval),
+            'monthly' => $after->copy()->addMonthsNoOverflow($interval),
+            'weekly' => empty($byDay)
+                ? $after->copy()->addWeeks($interval)
+                : $this->nextWeeklyByDay($after, $interval, $byDay, $anchorWeekStart),
+            default => throw new \InvalidArgumentException("Unknown recurrence frequency: {$frequency}"),
+        };
+    }
+
+    /**
+     * @param  array<int>  $byDay
+     */
+    private function nextWeeklyByDay(Carbon $after, int $interval, array $byDay, Carbon $anchorWeekStart): Carbon
+    {
+        $day = $after->copy()->startOfDay()->addDay();
+        $maxDaysToScan = $interval * 7 * 10 + 14;
+
+        for ($scanned = 0; $scanned < $maxDaysToScan; $scanned++, $day = $day->copy()->addDay()) {
+            $weekStart = $day->copy()->startOfWeek(CarbonInterface::MONDAY);
+            $weeksSinceAnchor = (int) ($anchorWeekStart->diffInDays($weekStart) / 7);
+
+            if ($weeksSinceAnchor % $interval === 0 && in_array($day->dayOfWeekIso, $byDay, true)) {
+                return $day;
+            }
+        }
+
+        throw new RecurrenceTooLargeException;
+    }
 }

@@ -21,4 +21,9 @@ class RecurringRule extends Model
     {
         return $this->hasMany(Event::class);
     }
+
+    public function tasks(): HasMany
+    {
+        return $this->hasMany(Task::class);
+    }
 }

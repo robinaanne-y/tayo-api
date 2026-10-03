@@ -14,3 +14,11 @@ Artisan::command('inspire', function () {
 // unbounded rather than being load-bearing for correctness.
 Schedule::call(fn () => FamilyNote::query()->where('expires_at', '<=', now())->delete())
     ->hourly();
+
+// Recurring chores generate one occurrence at a time (see
+// RecurringTaskOccurrenceGenerator) rather than eagerly like Events --
+// withoutOverlapping() plus the tasks table's own unique(recurring_rule_id,
+// due_at) index keep this safe against overlapping/duplicate runs.
+Schedule::command('tasks:generate-occurrences')
+    ->dailyAt('00:30')
+    ->withoutOverlapping();
