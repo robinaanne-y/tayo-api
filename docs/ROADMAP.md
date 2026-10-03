@@ -86,6 +86,15 @@
 - **Household switching support** — already possible data-model-wise
   (`GET /api/v1/households` returns all memberships); no backend gap here,
   this was a mobile-only UI task (now built).
+- **Default household** — nullable `users.default_household_id` FK.
+  `PATCH /api/v1/auth/default-household` (`UpdateDefaultHouseholdRequest`
+  validates the id belongs to one of the user's own households via
+  `household_memberships`), kept separate from `updateProfile()` since that
+  endpoint requires name+email unconditionally. The first household a user
+  creates is auto-set as their default (`HouseholdController::store()`,
+  only if they didn't already have one); later households don't override
+  it. `UserResource` exposes `default_household_id` so the mobile app can
+  open on the right household across sessions/devices.
 - **Household profile settings** — `households.color` and `households.emoji`
   (nullable, hex/emoji strings), settable on `POST /api/v1/households` and
   `PATCH /api/v1/households/{household}` (Owner-only, per the existing
@@ -302,15 +311,27 @@ with conditions and an optional calendar event created atomically. Met.
 - `HouseholdPolicy`: meal plan items are Owner/Adult-managed only (any
   adult can add/edit/delete any item — a meal plan is a shared
   household artifact, not a personal post, unlike Family Notes'
-  "author or adult" rule). Grocery items are fully open to any
-  household member including minors — add/edit/purchase/delete
-  anything — since the stakes of a wrong grocery edit are low and full
-  collaboration is the point.
+  "author or adult" rule). Grocery items started fully open to any
+  household member including minors for every action; later narrowed
+  (still within Phase 5) so editing/removing an item and the bulk
+  clear-purchased action are Owner/Adult only, while adding an item and
+  checking it off stay open to everyone, including minors — those are
+  the everyday "shopping" actions, split across `addGroceryItem`
+  (add/toggle) and `manageGroceryItem` (edit/delete/clear).
 - Explicitly did not build a recipe engine or meal→ingredient→grocery
   auto-generation in this phase (mobile roadmap is explicit about
   this).
 - Grocery "shopping mode" is a client-side concern (checking an item
   off *is* shopping mode) — no new table for it.
+- Follow-up additions after the initial Phase 5 build: a per-household
+  **meal approver** setting (`households.meal_approver_member_id`) —
+  when set, that one member fully replaces the Owner/Adult check for
+  managing the meal plan and acting on meal requests, so even the
+  Owner must go through the request flow once delegated; a bulk
+  `clear-purchased` grocery endpoint; and auto-expiring an overdue
+  pending meal request (date passed, still `pending`) to `expired` the
+  next time the household's requests are listed, lazily rather than via
+  a scheduler.
 
 ### Milestone
 
