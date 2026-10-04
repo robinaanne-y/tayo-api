@@ -47,6 +47,11 @@ class Member extends Model
         return $this->hasMany(MemberActivationToken::class);
     }
 
+    public function notificationPreferences(): HasMany
+    {
+        return $this->hasMany(NotificationPreference::class);
+    }
+
     /**
      * A member without a linked user account is a placeholder
      * (e.g. a child) managed on behalf of by an adult/owner.
