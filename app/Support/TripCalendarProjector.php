@@ -29,7 +29,7 @@ class TripCalendarProjector
                     });
             }))
             ->when($to, fn ($q) => $q->where('start_at', '<=', $to))
-            ->with(['itineraryItems', 'participants'])
+            ->with(['itineraryItems', 'participants', 'createdBy'])
             ->get();
 
         $entries = [];
