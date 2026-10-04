@@ -20,6 +20,7 @@ class StoreTaskRequest extends FormRequest
             'description' => ['nullable', 'string'],
             'due_at' => ['required', 'date'],
             'assigned_member_id' => ['nullable', 'integer'],
+            'trip_id' => ['nullable', 'integer', 'exists:trips,id'],
 
             'recurrence' => ['nullable', 'array'],
             'recurrence.frequency' => ['required_with:recurrence', Rule::in(['daily', 'weekly', 'monthly'])],
@@ -44,6 +45,17 @@ class StoreTaskRequest extends FormRequest
                         'assigned_member_id',
                         'The assignee does not belong to this household.',
                     );
+                }
+            }
+
+            $tripId = $this->input('trip_id');
+
+            if ($tripId !== null) {
+                $household = $this->route('household');
+                $belongsToHousehold = $household->trips()->whereKey($tripId)->exists();
+
+                if (! $belongsToHousehold) {
+                    $validator->errors()->add('trip_id', 'The trip does not belong to this household.');
                 }
             }
 

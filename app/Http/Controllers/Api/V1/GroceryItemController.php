@@ -25,6 +25,10 @@ class GroceryItemController extends Controller
                 : $query->whereNull('purchased_at');
         }
 
+        if ($request->filled('trip_id')) {
+            $query->where('trip_id', $request->integer('trip_id'));
+        }
+
         $items = $query->orderByDesc('created_at')->get();
 
         return response()->json([
@@ -40,6 +44,7 @@ class GroceryItemController extends Controller
             'unit' => $request->validated('unit'),
             'category' => $request->validated('category'),
             'added_by_member_id' => $request->user()->member->id,
+            'trip_id' => $request->validated('trip_id'),
         ]);
 
         $item->load(['addedBy', 'purchasedBy']);

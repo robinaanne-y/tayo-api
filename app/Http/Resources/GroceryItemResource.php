@@ -16,6 +16,7 @@ class GroceryItemResource extends JsonResource
             'quantity' => $this->quantity,
             'unit' => $this->unit,
             'category' => $this->category,
+            'trip_id' => $this->trip_id,
             'added_by_name' => $this->addedBy?->name,
             'purchased_at' => $this->purchased_at,
             'purchased_by_name' => $this->purchasedBy?->name,

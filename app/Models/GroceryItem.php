@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'added_by_member_id',
     'purchased_at',
     'purchased_by_member_id',
+    'trip_id',
 ])]
 class GroceryItem extends Model
 {
@@ -43,5 +44,10 @@ class GroceryItem extends Model
     public function purchasedBy(): BelongsTo
     {
         return $this->belongsTo(Member::class, 'purchased_by_member_id');
+    }
+
+    public function trip(): BelongsTo
+    {
+        return $this->belongsTo(Trip::class);
     }
 }

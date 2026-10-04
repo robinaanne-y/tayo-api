@@ -10,6 +10,8 @@ use App\Models\Household;
 use App\Models\MealRequest;
 use App\Models\PermissionRequest;
 use App\Models\Task;
+use App\Models\Trip;
+use App\Models\TripMemory;
 use App\Models\User;
 
 class HouseholdPolicy
@@ -436,6 +438,52 @@ class HouseholdPolicy
         }
 
         return $task->assigned_member_id === $membership->member_id
+            || ($membership->role?->canManageHousehold() ?? false);
+    }
+
+    /**
+     * Planning a trip -- including its thumbnail, itinerary, and
+     * participant list -- is Owner/Adult only, the same structural tier
+     * as a task or household setting.
+     */
+    public function addTrip(User $user, Household $household): bool
+    {
+        $role = $user->membershipFor($household)?->role;
+
+        return $role?->canManageHousehold() ?? false;
+    }
+
+    public function manageTrip(User $user, Household $household, Trip $trip): bool
+    {
+        if ($trip->household_id !== $household->id) {
+            return false;
+        }
+
+        $role = $user->membershipFor($household)?->role;
+
+        return $role?->canManageHousehold() ?? false;
+    }
+
+    /**
+     * Any member -- including a minor or child -- can leave a memory on a
+     * trip, same openness as a family note. Each member gets exactly one
+     * (an upsert at the controller level), so there's no separate "edit
+     * my own memory" ability to gate.
+     */
+    public function addTripMemory(User $user, Household $household): bool
+    {
+        return $user->membershipFor($household) !== null;
+    }
+
+    public function deleteTripMemory(User $user, Household $household, TripMemory $memory): bool
+    {
+        $membership = $user->membershipFor($household);
+
+        if ($membership === null || $memory->trip->household_id !== $household->id) {
+            return false;
+        }
+
+        return $memory->member_id === $membership->member_id
             || ($membership->role?->canManageHousehold() ?? false);
     }
 }
