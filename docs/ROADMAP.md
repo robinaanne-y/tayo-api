@@ -416,14 +416,18 @@ itinerary is created.
 
 ## Phase 8 — Family Map & Location (V1.3)
 
-- Tables: `member_location_settings`, `member_locations`,
-  `saved_places`, `geofences`.
+- Tables: `member_location_settings`, `member_locations`. No
+  `saved_places`/`geofences` tables in this phase — arrival/departure
+  notifications and saved places are deferred (see `DECISIONS.md`
+  ADR-008).
 - Sharing mode enum: `off`, `temporary`, `always`, `while_using_app`.
-- Start with coarse/last-known location; do not store high-frequency GPS
-  history in PostgreSQL without a concrete feature requirement.
-- This phase needs an explicit security/privacy review before
-  implementation (ADR needed) — location endpoints get extra scrutiny per
-  `ARCHITECTURE.md` §27.
+- Last-known location only (one upserted row per member), coarse
+  precision (~111m), deleted on sharing-off or `temporary` expiry — not
+  a GPS history table.
+- The security/privacy review this phase needs is done —
+  see `DECISIONS.md` ADR-008 for the consent model (self-service
+  sharing only, no member can enable tracking for another), storage
+  shape, and visibility rules before implementing against this section.
 
 ### Milestone
 
