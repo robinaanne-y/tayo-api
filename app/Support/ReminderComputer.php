@@ -39,7 +39,7 @@ class ReminderComputer
     private const TRIP_PREP_WINDOW_DAYS = 7;
 
     /**
-     * @return array<int, array{category: string, title: string, message: string}>
+     * @return array<int, array{category: string, title: string, message: string, trip_id?: int}>
      */
     public function forMember(Household $household, Member $member): array
     {
@@ -69,6 +69,7 @@ class ReminderComputer
                 'category' => ReminderCategory::TripPrep->value,
                 'title' => "Finish prepping for {$trip->title}",
                 'message' => 'There are still unchecked items on the checklist.',
+                'trip_id' => $trip->id,
             ];
         }
 

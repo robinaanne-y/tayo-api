@@ -119,7 +119,9 @@ class ReminderComputerTest extends TestCase
 
         $reminders = (new ReminderComputer)->forMember($household, $member);
 
-        $this->assertTrue(collect($reminders)->contains('category', 'trip_prep'));
+        $tripPrep = collect($reminders)->firstWhere('category', 'trip_prep');
+        $this->assertNotNull($tripPrep);
+        $this->assertSame($trip->id, $tripPrep['trip_id']);
     }
 
     public function test_trip_prep_reminder_does_not_fire_once_the_checklist_is_complete(): void
