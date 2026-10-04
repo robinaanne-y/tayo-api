@@ -378,21 +378,39 @@ opens the app for a week. Met — covered by
 
 ---
 
-## Phase 7 — Trips & Family Events (V1.2)
+## Phase 7 — Trips & Family Events (V1.2) ✅ Done
 
 - Tables: `trips`, `trip_participants`, `trip_itinerary_items`,
-  `trip_checklists`, `trip_checklist_items`.
-- Countdown is computed (`trip.start_at - now()`), never a stored,
-  mutable field.
-- Trip dates/itinerary should be exposed to the calendar (Phase 3) through
-  the application layer — not duplicated as separate `events` rows.
-- Trip grocery integration: a trip can reference/create a
-  `grocery_lists` row rather than inventing a parallel list type.
+  `trip_memories`. No `trip_checklists`/`trip_checklist_items` tables —
+  a trip's checklist and "trip tasks" are the same thing: the existing
+  Phase 6 `tasks` table gained a nullable `trip_id` FK, so a checklist
+  item is just `Task::where('trip_id', ...)`, reusing its assignment/
+  completion columns and policy tier rather than duplicating them.
+  Grocery integration is the identical move — a nullable `trip_id` on
+  the existing `grocery_items` table, not a `grocery_lists` row (that
+  table was never built; see Phase 5's note on why).
+- Countdown is computed (`trip.start_at` vs `now()` in `TripResource`),
+  never a stored, mutable field.
+- Trip dates/itinerary are exposed to the calendar without data
+  duplication: `EventController::index()` calls a new
+  `TripCalendarProjector` that synthesizes non-persisted, `EventResource`
+  -shaped entries (namespaced ids like `trip-5`/`trip-itinerary-12`, a
+  `type` discriminator) and merges them into the response. No `events`
+  row is ever created for a trip — the same "computed live, not stored"
+  technique the `all_member_households` visibility branch already used.
+- A trip can have a thumbnail (`thumbnail_path`, Owner/Adult upload,
+  mirrors the member-avatar-upload endpoint shape) and `trip_memories` —
+  one free-text "memorable moment" per member per trip (upsert on
+  repost), any member can add their own, author-or-Owner/Adult can
+  delete (mirrors Family Notes' deletion rule).
 
 ### Milestone
 
 A trip's itinerary, checklist and dates are fully API-backed and show up
-in the shared calendar without data duplication.
+in the shared calendar without data duplication. Met — covered by
+`tests/Feature/Trips/TripCalendarIntegrationTest.php`, which also
+asserts the `events` table's row count never changes when a trip or its
+itinerary is created.
 
 ---
 
@@ -466,7 +484,7 @@ RevenueCat as the source of truth for payment state only.
 | 4 | Family Requests | permission_requests, request_conditions | Phase 1, 3 (for promote-to-event) — ✅ Done |
 | 5 | Meals + Groceries | meal_plan_items, meal_requests, grocery_items | Phase 4 (approval flow) — ✅ Done — **MVP line** |
 | 6 | Tasks + Chores | tasks (reuses recurring_rules) | Phase 1 — ✅ Done |
-| 7 | Trips + Events | trips, trip_participants, trip_itinerary_items, trip_checklists, trip_checklist_items | Phase 3, 5 |
+| 7 | Trips + Events | trips, trip_participants, trip_itinerary_items, trip_memories (reuses tasks/grocery_items) | Phase 3, 5, 6 — ✅ Done |
 | 8 | Family Map + Location | member_location_settings, member_locations, saved_places, geofences | Phase 1 + privacy review |
 | 9 | Realtime + Automation | notification_preferences | Reverb, FCM infra |
 | 10 | Monetization | subscription/entitlement fields on households | RevenueCat, product validation |
