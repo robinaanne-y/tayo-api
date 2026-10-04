@@ -42,6 +42,10 @@ class TaskController extends Controller
             $query->whereDate('due_at', '>=', $request->date('due_after'));
         }
 
+        if ($request->filled('trip_id')) {
+            $query->where('trip_id', $request->integer('trip_id'));
+        }
+
         $tasks = $query->orderByRaw('due_at IS NULL')->orderBy('due_at')->get();
 
         return response()->json([
@@ -78,6 +82,7 @@ class TaskController extends Controller
                 'created_by_member_id' => $request->user()->member->id,
                 'assigned_member_id' => $request->validated('assigned_member_id'),
                 'recurring_rule_id' => $recurringRuleId,
+                'trip_id' => $request->validated('trip_id'),
             ]);
         });
 

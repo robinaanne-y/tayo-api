@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'completed_at',
     'completed_by_member_id',
     'recurring_rule_id',
+    'trip_id',
 ])]
 class Task extends Model
 {
@@ -56,6 +57,11 @@ class Task extends Model
     public function recurringRule(): BelongsTo
     {
         return $this->belongsTo(RecurringRule::class);
+    }
+
+    public function trip(): BelongsTo
+    {
+        return $this->belongsTo(Trip::class);
     }
 
     public function isOverdue(): bool

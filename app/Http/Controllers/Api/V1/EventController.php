@@ -10,6 +10,7 @@ use App\Models\Event;
 use App\Models\Household;
 use App\Models\RecurringRule;
 use App\Support\RecurrenceGenerator;
+use App\Support\TripCalendarProjector;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -40,22 +41,22 @@ class EventController extends Controller
                             ])->orWhere('creator_member_id', $memberId);
                         });
                 })
-                ->orWhere(function ($shared) use ($household) {
-                    $shared->where('visibility', 'selected_households')
-                        ->where('household_id', '!=', $household->id)
-                        ->whereHas(
-                            'sharedHouseholds',
-                            fn ($q) => $q->where('households.id', $household->id),
-                        );
-                })
-                ->orWhere(function ($sharedWithAll) use ($household) {
-                    $sharedWithAll->where('visibility', 'all_member_households')
-                        ->where('household_id', '!=', $household->id)
-                        ->whereHas(
-                            'creator.households',
-                            fn ($q) => $q->where('households.id', $household->id),
-                        );
-                });
+                    ->orWhere(function ($shared) use ($household) {
+                        $shared->where('visibility', 'selected_households')
+                            ->where('household_id', '!=', $household->id)
+                            ->whereHas(
+                                'sharedHouseholds',
+                                fn ($q) => $q->where('households.id', $household->id),
+                            );
+                    })
+                    ->orWhere(function ($sharedWithAll) use ($household) {
+                        $sharedWithAll->where('visibility', 'all_member_households')
+                            ->where('household_id', '!=', $household->id)
+                            ->whereHas(
+                                'creator.households',
+                                fn ($q) => $q->where('households.id', $household->id),
+                            );
+                    });
             })
             ->with(['creator', 'participants', 'sharedHouseholds', 'recurringRule']);
 
@@ -69,8 +70,22 @@ class EventController extends Controller
 
         $events = $query->orderBy('start_at')->get();
 
+        // Trips/itinerary items are projected into the same response as
+        // read-only, non-persisted entries (see TripCalendarProjector) --
+        // no `events` row is ever created for a trip, matching the
+        // all_member_households branch above's "computed live, not
+        // stored" precedent.
+        $tripEntries = (new TripCalendarProjector)->project(
+            $household,
+            $request->filled('from') ? $request->date('from') : null,
+            $request->filled('to') ? $request->date('to') : null,
+        );
+
         return response()->json([
-            'data' => EventResource::collection($events),
+            'data' => array_merge(
+                $events->map(fn (Event $event) => (new EventResource($event))->resolve())->all(),
+                $tripEntries,
+            ),
         ]);
     }
 

@@ -13,6 +13,9 @@ use App\Http\Controllers\Api\V1\MealRequestController;
 use App\Http\Controllers\Api\V1\MemberController;
 use App\Http\Controllers\Api\V1\PermissionRequestController;
 use App\Http\Controllers\Api\V1\TaskController;
+use App\Http\Controllers\Api\V1\TripController;
+use App\Http\Controllers\Api\V1\TripItineraryItemController;
+use App\Http\Controllers\Api\V1\TripMemoryController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -164,5 +167,34 @@ Route::prefix('v1')->group(function () {
         Route::delete('households/{household}/tasks/{task}', [TaskController::class, 'destroy']);
         Route::post('households/{household}/tasks/{task}/complete', [TaskController::class, 'complete']);
         Route::post('households/{household}/tasks/{task}/uncomplete', [TaskController::class, 'uncomplete']);
+
+        Route::get('households/{household}/trips', [TripController::class, 'index']);
+        Route::post('households/{household}/trips', [TripController::class, 'store']);
+        Route::get('households/{household}/trips/{trip}', [TripController::class, 'show']);
+        Route::put('households/{household}/trips/{trip}', [TripController::class, 'update']);
+        Route::delete('households/{household}/trips/{trip}', [TripController::class, 'destroy']);
+        Route::post(
+            'households/{household}/trips/{trip}/thumbnail',
+            [TripController::class, 'uploadThumbnail'],
+        );
+
+        Route::post(
+            'households/{household}/trips/{trip}/itinerary',
+            [TripItineraryItemController::class, 'store'],
+        );
+        Route::put(
+            'households/{household}/trips/{trip}/itinerary/{itineraryItem}',
+            [TripItineraryItemController::class, 'update'],
+        );
+        Route::delete(
+            'households/{household}/trips/{trip}/itinerary/{itineraryItem}',
+            [TripItineraryItemController::class, 'destroy'],
+        );
+
+        Route::post('households/{household}/trips/{trip}/memory', [TripMemoryController::class, 'store']);
+        Route::delete(
+            'households/{household}/trips/{trip}/memories/{memory}',
+            [TripMemoryController::class, 'destroy'],
+        );
     });
 });

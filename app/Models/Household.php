@@ -88,4 +88,9 @@ class Household extends Model
     {
         return $this->hasMany(Task::class);
     }
+
+    public function trips(): HasMany
+    {
+        return $this->hasMany(Trip::class);
+    }
 }
