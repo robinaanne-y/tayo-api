@@ -53,6 +53,10 @@ class HouseholdPolicy
 
     public function deleteNote(User $user, Household $household, FamilyNote $note): bool
     {
+        if ($note->household_id !== $household->id) {
+            return false;
+        }
+
         $membership = $user->membershipFor($household);
 
         if ($membership === null) {
@@ -76,6 +80,10 @@ class HouseholdPolicy
 
     public function deleteAnnouncement(User $user, Household $household, Announcement $announcement): bool
     {
+        if ($announcement->household_id !== $household->id) {
+            return false;
+        }
+
         $membership = $user->membershipFor($household);
 
         if ($membership === null) {
@@ -132,6 +140,10 @@ class HouseholdPolicy
 
     private function manageEvent(User $user, Household $household, Event $event): bool
     {
+        if ($event->household_id !== $household->id) {
+            return false;
+        }
+
         $membership = $user->membershipFor($household);
 
         if ($membership === null) {
@@ -174,6 +186,10 @@ class HouseholdPolicy
      */
     public function updateRequest(User $user, Household $household, PermissionRequest $permissionRequest): bool
     {
+        if ($permissionRequest->household_id !== $household->id) {
+            return false;
+        }
+
         $membership = $user->membershipFor($household);
 
         if ($membership === null) {
@@ -189,6 +205,10 @@ class HouseholdPolicy
      */
     public function acknowledgeRequest(User $user, Household $household, PermissionRequest $permissionRequest): bool
     {
+        if ($permissionRequest->household_id !== $household->id) {
+            return false;
+        }
+
         $membership = $user->membershipFor($household);
 
         return $membership !== null && $permissionRequest->requester_member_id === $membership->member_id;
@@ -213,6 +233,10 @@ class HouseholdPolicy
      */
     public function actOnRequest(User $user, Household $household, PermissionRequest $permissionRequest): bool
     {
+        if ($permissionRequest->household_id !== $household->id) {
+            return false;
+        }
+
         $membership = $user->membershipFor($household);
 
         if ($membership === null) {
@@ -231,6 +255,10 @@ class HouseholdPolicy
      */
     public function addRequestCondition(User $user, Household $household, PermissionRequest $permissionRequest): bool
     {
+        if ($permissionRequest->household_id !== $household->id) {
+            return false;
+        }
+
         $membership = $user->membershipFor($household);
 
         if ($membership === null) {
@@ -282,6 +310,10 @@ class HouseholdPolicy
 
     public function updateMealRequest(User $user, Household $household, MealRequest $mealRequest): bool
     {
+        if ($mealRequest->household_id !== $household->id) {
+            return false;
+        }
+
         $membership = $user->membershipFor($household);
 
         if ($membership === null) {
@@ -303,6 +335,10 @@ class HouseholdPolicy
      */
     public function actOnMealRequest(User $user, Household $household, MealRequest $mealRequest): bool
     {
+        if ($mealRequest->household_id !== $household->id) {
+            return false;
+        }
+
         $membership = $user->membershipFor($household);
 
         if ($membership === null) {
@@ -320,6 +356,10 @@ class HouseholdPolicy
 
     public function acknowledgeMealRequest(User $user, Household $household, MealRequest $mealRequest): bool
     {
+        if ($mealRequest->household_id !== $household->id) {
+            return false;
+        }
+
         $membership = $user->membershipFor($household);
 
         return $membership !== null && $mealRequest->requester_member_id === $membership->member_id;
