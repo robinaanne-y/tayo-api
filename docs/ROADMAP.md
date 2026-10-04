@@ -343,20 +343,38 @@ line**, matching the mobile roadmap's MVP boundary. Met.
 
 ---
 
-## Phase 6 — Tasks & Chores (V1.1)
+## Phase 6 — Tasks & Chores (V1.1) ✅ Done
 
-- Tables: `tasks`, `task_assignments`, `task_recurrences`,
-  `task_completions`.
-- Recurring task generation is a backend job (Laravel Scheduler), never
-  client-driven — mobile must not be the thing that "creates" this week's
-  recurring chore.
-- Endpoints: CRUD under `/api/v1/households/{household}/tasks`, assign,
-  complete, list by assignee/status/due date.
+- One `tasks` table, not the four originally sketched here — reuses the
+  existing `recurring_rules` table verbatim (same as Events) and inlines
+  single-assignee/completion as `assigned_member_id`/`completed_at`/
+  `completed_by_member_id` columns, matching the single-assignee/inline-
+  status conventions already used by `grocery_items` and `meal_requests`.
+  Consistent with how Phase 3 and Phase 5 each simplified their own
+  original multi-table sketch once built.
+- Recurring task generation is a backend job (`tasks:generate-occurrences`,
+  Laravel Scheduler, daily), never client-driven — mobile must not be the
+  thing that "creates" this week's recurring chore. Generates one
+  occurrence at a time into a 2-day lookahead buffer (`RecurringTaskOccurrenceGenerator`),
+  unlike Events' eager-at-creation expansion, since a chore has no natural
+  end-of-range to bound an eager expansion against. Idempotent against
+  same-day re-runs and safe to catch up after extended downtime via a
+  `unique(recurring_rule_id, due_at)` index.
+- `HouseholdPolicy`: creating/editing/deleting a task is Owner/Adult only
+  (`addTask`/`manageTask`); marking complete/incomplete is open to the
+  assignee (even a minor) or an Owner/Adult (`toggleTask`) — the same
+  any-member-for-the-everyday-action split as grocery items.
+- Endpoints: CRUD under `/api/v1/households/{household}/tasks`, plus
+  `/complete` and `/uncomplete`, `index` filterable by
+  `assignee_member_id`/`status` (pending/completed/overdue)/`due_before`/
+  `due_after`.
 
 ### Milestone
 
 Recurring chores keep generating and staying assigned even if nobody
-opens the app for a week.
+opens the app for a week. Met — covered by
+`tests/Feature/Tasks/TaskRecurrenceGenerationTest.php`, including a
+7-day "nobody opened the app" catch-up scenario.
 
 ---
 
@@ -447,7 +465,7 @@ RevenueCat as the source of truth for payment state only.
 | 3 | Calendar + Scheduling | events, event_participants, event_households, recurring_rules | Phase 1 |
 | 4 | Family Requests | permission_requests, request_conditions | Phase 1, 3 (for promote-to-event) — ✅ Done |
 | 5 | Meals + Groceries | meal_plan_items, meal_requests, grocery_items | Phase 4 (approval flow) — ✅ Done — **MVP line** |
-| 6 | Tasks + Chores | tasks, task_assignments, task_recurrences, task_completions | Phase 1 |
+| 6 | Tasks + Chores | tasks (reuses recurring_rules) | Phase 1 — ✅ Done |
 | 7 | Trips + Events | trips, trip_participants, trip_itinerary_items, trip_checklists, trip_checklist_items | Phase 3, 5 |
 | 8 | Family Map + Location | member_location_settings, member_locations, saved_places, geofences | Phase 1 + privacy review |
 | 9 | Realtime + Automation | notification_preferences | Reverb, FCM infra |
