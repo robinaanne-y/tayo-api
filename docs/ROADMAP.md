@@ -433,26 +433,41 @@ see it.
 
 ---
 
-## Phase 9 — Realtime, Notifications & Automation (V1.4)
+## Phase 9 — Realtime, Notifications & Automation (V1.4) — partially done
 
-- Introduce Laravel Reverb for: grocery list changes, task completion,
-  permission requests, meal requests, trip checklist updates, household
-  announcements. Not every mutation needs to broadcast — only where it
-  materially improves the experience (mobile roadmap is explicit here).
-- Introduce Firebase Cloud Messaging for push. Notifications are
-  generated from backend events/jobs, never triggered client-side.
-- `notification_preferences` table (per-member, per-category) — this is
-  the first phase that actually needs it; earlier phases can hardcode
-  "always notify."
-- Automation via Laravel Scheduler + queues: weekly meal-planning
-  reminder, recurring grocery reminder, trip-prep reminders, event
-  reminders, recurring chore generation (formalizes what Phase 6 started
-  ad hoc).
+Scoped down to just the automation piece — Reverb and FCM both need
+external service/account setup (Firebase project, APNs certs, a running
+WebSocket server) that wasn't feasible to do in one sitting; they stay
+deferred, tracked below.
+
+- Automation ✅ Done, with no new infra: `notification_preferences`
+  table (`member_id`, `category`, `enabled`, default enabled — opt-out,
+  since these are low-stakes nudges, not consent-sensitive data) and a
+  `ReminderComputer` support class that computes reminder state **live
+  from existing data at read time** — no `reminders` table, same
+  "computed at read, never stored" technique used for
+  `all_member_households` calendar visibility and overdue-task
+  detection. Three categories: `meal_planning` (next week unplanned,
+  only fires Thursday onward), `grocery` (list empty or untouched for a
+  week), `trip_prep` (a trip within 7 days still has incomplete
+  checklist items — the same Phase 7 `tasks.trip_id` reuse, so no new
+  "checklist" concept here either). `event_reminders` was dropped from
+  this cut: a timed "remind me before X" reminder needs push or local
+  notifications to mean anything — there's nothing a read-time
+  computation can do for it. Recurring chore generation ("formalizes
+  what Phase 6 started ad hoc") needed no new code — Phase 6's
+  `tasks:generate-occurrences` already satisfies it.
+- Realtime (Reverb) — **deferred**, not started.
+- Push notifications (FCM) — **deferred**, not started. This also means
+  the automation above is in-app only (surfaced on next app open), not
+  a true push while the app is closed.
 
 ### Milestone
 
 The backend proactively pushes relevant updates instead of only
-answering when asked.
+answering when asked. **Not yet met** — reminders are computed and
+exposed via `GET /households/{household}/reminders`, but nothing is
+pushed; the client has to ask. Revisit once Reverb/FCM are set up.
 
 ---
 
@@ -486,7 +501,7 @@ RevenueCat as the source of truth for payment state only.
 | 6 | Tasks + Chores | tasks (reuses recurring_rules) | Phase 1 — ✅ Done |
 | 7 | Trips + Events | trips, trip_participants, trip_itinerary_items, trip_memories (reuses tasks/grocery_items) | Phase 3, 5, 6 — ✅ Done |
 | 8 | Family Map + Location | member_location_settings, member_locations, saved_places, geofences | Phase 1 + privacy review |
-| 9 | Realtime + Automation | notification_preferences | Reverb, FCM infra |
+| 9 | Realtime + Automation | notification_preferences | Reverb, FCM infra — automation done, realtime/push deferred |
 | 10 | Monetization | subscription/entitlement fields on households | RevenueCat, product validation |
 
 ---
