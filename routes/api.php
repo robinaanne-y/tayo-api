@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\ActivationController;
 use App\Http\Controllers\Api\V1\AnnouncementController;
 use App\Http\Controllers\Api\V1\Auth\AuthController;
+use App\Http\Controllers\Api\V1\Auth\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\EventController;
 use App\Http\Controllers\Api\V1\FamilyNoteController;
 use App\Http\Controllers\Api\V1\GroceryItemController;
@@ -12,6 +13,7 @@ use App\Http\Controllers\Api\V1\MealPlanItemController;
 use App\Http\Controllers\Api\V1\MealRequestController;
 use App\Http\Controllers\Api\V1\MemberController;
 use App\Http\Controllers\Api\V1\PermissionRequestController;
+use App\Http\Controllers\Api\V1\ReminderController;
 use App\Http\Controllers\Api\V1\TaskController;
 use App\Http\Controllers\Api\V1\TripController;
 use App\Http\Controllers\Api\V1\TripItineraryItemController;
@@ -28,6 +30,8 @@ Route::prefix('v1')->group(function () {
             Route::get('me', [AuthController::class, 'me']);
             Route::patch('me', [AuthController::class, 'updateProfile']);
             Route::patch('default-household', [AuthController::class, 'updateDefaultHousehold']);
+            Route::get('notification-preferences', [NotificationPreferenceController::class, 'index']);
+            Route::patch('notification-preferences', [NotificationPreferenceController::class, 'update']);
         });
     });
 
@@ -196,5 +200,7 @@ Route::prefix('v1')->group(function () {
             'households/{household}/trips/{trip}/memories/{memory}',
             [TripMemoryController::class, 'destroy'],
         );
+
+        Route::get('households/{household}/reminders', [ReminderController::class, 'index']);
     });
 });
