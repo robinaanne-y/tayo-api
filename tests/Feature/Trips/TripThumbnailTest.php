@@ -55,7 +55,7 @@ class TripThumbnailTest extends TestCase
         );
 
         $response->assertOk()
-            ->assertJsonPath('data.thumbnail_url', fn ($url) => str_contains($url, '/storage/trip-thumbnails/'));
+            ->assertJsonPath('data.thumbnail_url', fn ($url) => str_contains($url, '/media/trip-thumbnails/'));
 
         Storage::disk('public')->assertExists($trip->fresh()->thumbnail_path);
     }

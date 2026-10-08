@@ -62,15 +62,17 @@ class Member extends Model
     }
 
     /**
-     * Deliberately a path relative to the API host (`/storage/...`), not an
+     * Deliberately a path relative to the API host (`/media/...`), not an
      * absolute URL — baking in APP_URL here would break clients that reach
      * the API through a different host than the one configured in .env
-     * (e.g. a phone on the LAN using the dev machine's network IP).
+     * (e.g. a phone on the LAN using the dev machine's network IP). Routed
+     * through MediaController rather than the raw /storage symlink so CORS
+     * headers are always applied (see routes/web.php).
      */
     protected function avatarUrl(): Attribute
     {
         return Attribute::get(
-            fn () => $this->avatar_path ? '/storage/'.$this->avatar_path : null,
+            fn () => $this->avatar_path ? '/media/'.$this->avatar_path : null,
         );
     }
 }
