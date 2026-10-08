@@ -39,12 +39,14 @@ class Trip extends Model
 
     /**
      * A relative path, not an absolute URL -- mirrors Member::avatarUrl()
-     * so the mobile client doesn't bake in APP_URL.
+     * so the mobile client doesn't bake in APP_URL. Routed through
+     * MediaController rather than the raw /storage symlink so CORS headers
+     * are always applied (see routes/web.php).
      */
     protected function thumbnailUrl(): Attribute
     {
         return Attribute::get(
-            fn () => $this->thumbnail_path ? '/storage/'.$this->thumbnail_path : null,
+            fn () => $this->thumbnail_path ? '/media/'.$this->thumbnail_path : null,
         );
     }
 

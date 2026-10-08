@@ -42,7 +42,7 @@ class MemberAvatarTest extends TestCase
             ['avatar' => UploadedFile::fake()->image('avatar.jpg')],
         );
 
-        $response->assertOk()->assertJsonPath('data.avatar_url', fn ($url) => str_contains($url, '/storage/avatars/'));
+        $response->assertOk()->assertJsonPath('data.avatar_url', fn ($url) => str_contains($url, '/media/avatars/'));
 
         $path = $child->fresh()->avatar_path;
         $this->assertNotNull($path);
